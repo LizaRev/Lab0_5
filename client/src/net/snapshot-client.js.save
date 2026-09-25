@@ -1,0 +1,41 @@
+export class SnapshotClient {
+  constructor(netgraph = null) {
+    this.netgraph = netgraph;
+
+    this.lastSnapshot = null;
+    this.lastProcessedSeq = -1;
+
+    this.listeners = new Set();
+  }
+
+  receive(snapshot) {
+    if (!snapshot) {
+      return;
+    }
+
+    if (
+      typeof snapshot.lastProcessedSeq === "number"
+    ) {
+      this.lastProcessedSeq =
+        snapshot.lastProcessedSeq;
+    }
+
+    this.lastSnapshot = snapshot;
+
+    this.netgraph?.recordSnapshot(
+      this.lastProcessedSeq
+    );
+
+    for (const listener of this.listeners) {
+      listener(snapshot);
+    }
+  }
+
+  onSnapshot(callback) {
+    this.listeners.add(callback);
+
+    return () => {
+      this.listeners.delete(callback);
+    };
+  }
+}

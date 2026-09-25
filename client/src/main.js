@@ -1,13 +1,7 @@
 import { createLoop } from './loop.js';
 import { createInput } from './input.js';
 
-import { Ship } from './sim/ship.js';
-import { Asteroid } from './sim/asteroid.js';
-import { Pickup } from './sim/pickup.js';
 import { World } from './sim/world.js';
-
-import { attachHoming } from './sim/homing.js';
-import { wrapShip } from './sim/arena.js';
 
 import { createCanvas } from './render/canvas.js';
 import { drawScene } from './render/draw.js';
@@ -21,15 +15,14 @@ import { initHud } from './hud.js';
 import { Lobby } from './lobby.js';
 import { createLobbyUI } from './lobby-ui.js';
 
+import { ClientNetwork } from './net/client-network.js';
+
 
 async function startGame() {
 
   const lobby =
     new Lobby();
 
-
-  // Спочатку ставимо слухач joined.
-  // Це важливо, бо UI може викликати join одразу.
 
   const joined =
     new Promise((resolve) => {
@@ -49,14 +42,10 @@ async function startGame() {
     });
 
 
-  // Тепер створюємо lobby UI.
-
   createLobbyUI(
     lobby
   );
 
-
-  // Чекаємо реального joined від сервера.
 
   const joinedData =
     await joined;
@@ -65,10 +54,8 @@ async function startGame() {
   const playerName =
     joinedData.playerName || "";
 
-
   const room =
     joinedData.room || null;
-
 
   const initialPlayers =
     joinedData.players || [];
@@ -79,18 +66,15 @@ async function startGame() {
     playerName
   );
 
-
   console.log(
     "Joined room:",
     room?.id
   );
 
-
   console.log(
     "Arena:",
     room?.arena
   );
-
 
   console.log(
     "Players:",
@@ -98,9 +82,90 @@ async function startGame() {
   );
 
 
-  // =========================
-  // CANVAS
-  // =========================
+  /*
+   * Network
+   */
+
+  const network =
+    new ClientNetwork(
+      lobby.connection
+    );
+
+
+  /*
+   * Lobby and ClientNetwork
+   * use the same WebSocket.
+   */
+
+  const originalOnMessage =
+    lobby.connection.onmessage;
+
+
+  lobby.connection.onmessage =
+    (message) => {
+
+      originalOnMessage?.(
+        message
+      );
+
+      network.handleMessage(
+        message
+      );
+
+    };
+
+
+  /*
+   * Network graph
+   */
+
+  network.netgraph.attach();
+
+
+  /*
+   * M1:
+   * latency = 100 ms
+   * jitter = 0
+   * packet loss = 0
+   */
+
+  network.setLatency(100);
+  network.setJitter(0);
+  network.setPacketLoss(0);
+
+
+  /*
+   * Latest authoritative
+   * server snapshot.
+   */
+
+  let latestSnapshot =
+    null;
+
+
+  network.onSnapshot(
+    (snapshot) => {
+
+      latestSnapshot =
+        snapshot;
+
+      /*
+       * Для перевірки можна бачити,
+       * що snapshot-и приходять.
+       */
+
+      console.log(
+        "Snapshot:",
+        snapshot
+      );
+
+    }
+  );
+
+
+  /*
+   * Canvas
+   */
 
   const canvas =
     createCanvas();
@@ -114,9 +179,9 @@ async function startGame() {
   );
 
 
-  // =========================
-  // AUDIO
-  // =========================
+  /*
+   * Audio
+   */
 
   const audio =
     createAudio();
@@ -133,15 +198,21 @@ async function startGame() {
   );
 
 
-  // =========================
-  // ASSETS
-  // =========================
+  /*
+   * Assets
+   */
 
   const manifestUrl =
     new URL(
       "./assets/manifest.json",
       import.meta.url
     ).href;
+
+
+  console.log(
+    "Manifest URL:",
+    manifestUrl
+  );
 
 
   const manifest =
@@ -161,6 +232,14 @@ async function startGame() {
           manifestUrl,
 
         onProgress(progress) {
+
+          console.log(
+            "Loading:",
+            Math.round(
+              progress * 100
+            ) + "%"
+          );
+
 
           drawLoadingScreen(
             canvas.ctx,
@@ -186,9 +265,9 @@ async function startGame() {
   );
 
 
-  // =========================
-  // INPUT
-  // =========================
+  /*
+   * Input
+   */
 
   const input =
     createInput(
@@ -196,9 +275,14 @@ async function startGame() {
     );
 
 
-  // =========================
-  // WORLD
-  // =========================
+  /*
+   * Local World exists only
+   * because HUD/audio expect it.
+   *
+   * IMPORTANT:
+   * world.step() is NEVER called
+   * on the client.
+   */
 
   const world =
     new World();
@@ -209,10 +293,6 @@ async function startGame() {
   );
 
 
-  // =========================
-  // HUD
-  // =========================
-
   const hud =
     initHud(
       world,
@@ -221,127 +301,224 @@ async function startGame() {
     );
 
 
-  // =========================
-  // PLAYER SHIP
-  // =========================
+  /*
+   * Convert server snapshot
+   * into the format expected
+   * by drawScene().
+   */
 
-  const firstShip =
-    new Ship(
-      canvas.width / 2,
-      canvas.height / 2
-    );
+  function createRenderWorld(
+    snapshot
+  ) {
 
+    const renderWorld = {
 
-  world.spawn(
-    firstShip
-  );
+      width:
+        snapshot?.world?.width ??
+        canvas.width,
 
+      height:
+        snapshot?.world?.height ??
+        canvas.height,
 
-  // =========================
-  // ASTEROID 1
-  // =========================
+      score:
+        snapshot?.world?.score ??
+        0,
 
-  const asteroid =
-    new Asteroid(
-      200,
-      200,
-      100,
-      80,
-      30
-    );
+      entities: []
 
-
-  world.spawn(
-    asteroid
-  );
+    };
 
 
-  attachHoming(
-    asteroid,
-    firstShip
-  );
+    const entities =
+      snapshot?.world?.entities ||
+      [];
 
-
-  // =========================
-  // ASTEROID 2
-  // =========================
-
-  const secondAsteroid =
-    new Asteroid(
-      600,
-      350,
-      -80,
-      -60,
-      30
-    );
-
-
-  world.spawn(
-    secondAsteroid
-  );
-
-
-  // =========================
-  // PICKUP
-  // =========================
-
-  const pickup =
-    new Pickup(
-      600,
-      300,
-      "shield"
-    );
-
-
-  world.spawn(
-    pickup
-  );
-
-
-  // =========================
-  // GET SHIP
-  // =========================
-
-  function getShip() {
 
     for (
-      const ship of
-      world.ofKind("ship")
+      const entity of entities
     ) {
 
-      return ship;
+      renderWorld.entities.push({
+
+        id:
+          entity.id,
+
+        kind:
+          entity.kind,
+
+        pos: {
+
+          x:
+            entity.x,
+
+          y:
+            entity.y
+
+        },
+
+        vel: {
+
+          x:
+            entity.vx ?? 0,
+
+          y:
+            entity.vy ?? 0
+
+        },
+
+        angle:
+          entity.angle ?? 0,
+
+        radius:
+          entity.radius ?? 0,
+
+        hp:
+          entity.hp,
+
+        thrust:
+          entity.thrust ?? 0,
+
+        type:
+          entity.type,
+
+        ttl:
+          entity.ttl,
+
+        alive:
+          true
+
+      });
 
     }
 
 
-    return null;
+    renderWorld[
+      Symbol.iterator
+    ] = function* () {
+
+      yield* this.entities;
+
+    };
+
+
+    return renderWorld;
   }
 
 
-  // =========================
-  // PREVIOUS STATE
-  // =========================
+  /*
+   * Find the ship from
+   * the latest server snapshot.
+   */
 
-  let previous = {
+  function getSnapshotShip(
+    snapshot
+  ) {
 
-    x:
-      firstShip.pos.x,
-
-    y:
-      firstShip.pos.y,
-
-    angle:
-      firstShip.angle,
-
-    thrust:
-      firstShip.thrust
-
-  };
+    const entities =
+      snapshot?.world?.entities ||
+      [];
 
 
-  // =========================
-  // LOOP STATS
-  // =========================
+    return (
+      entities.find(
+        (entity) =>
+          entity.kind === "ship"
+      ) || null
+    );
+
+  }
+
+
+  /*
+   * Create a render-only ship.
+   *
+   * It is NOT simulated locally.
+   */
+
+  function createRenderShip(
+    snapshotShip
+  ) {
+
+    if (!snapshotShip) {
+      return null;
+    }
+
+
+    return {
+
+      x:
+        snapshotShip.x,
+
+      y:
+        snapshotShip.y,
+
+      angle:
+        snapshotShip.angle ?? 0,
+
+      thrust:
+        snapshotShip.thrust ?? 0,
+
+      hp:
+        snapshotShip.hp ?? 0,
+
+      shield:
+        false,
+
+      alive:
+        true
+
+    };
+
+  }
+
+
+  let renderWorld =
+    createRenderWorld(
+      null
+    );
+
+
+  let renderShip =
+    null;
+
+
+  /*
+   * Apply authoritative
+   * server snapshot.
+   */
+
+  function applySnapshot(
+    snapshot
+  ) {
+
+    renderWorld =
+      createRenderWorld(
+        snapshot
+      );
+
+
+    const snapshotShip =
+      getSnapshotShip(
+        snapshot
+      );
+
+
+    renderShip =
+      createRenderShip(
+        snapshotShip
+      );
+
+
+    world.score =
+      snapshot?.world?.score ?? 0;
+
+  }
+
+
+  /*
+   * Loop statistics.
+   */
 
   let loopStats = {
 
@@ -354,145 +531,69 @@ async function startGame() {
   };
 
 
-  // =========================
-  // LERP
-  // =========================
+  /*
+   * Render only.
+   *
+   * There is NO local physics.
+   */
 
-  function lerp(
-    a,
-    b,
-    alpha
-  ) {
+  function render() {
 
-    return (
-      a +
-      (b - a) * alpha
-    );
+    if (latestSnapshot) {
 
-  }
-
-
-  // =========================
-  // LERP ANGLE
-  // =========================
-
-  function lerpAngle(
-    a,
-    b,
-    alpha
-  ) {
-
-    const twoPi =
-      Math.PI * 2;
-
-
-    let difference =
-      (b - a) % twoPi;
-
-
-    if (
-      difference > Math.PI
-    ) {
-
-      difference -=
-        twoPi;
+      applySnapshot(
+        latestSnapshot
+      );
 
     }
 
 
-    if (
-      difference < -Math.PI
-    ) {
-
-      difference +=
-        twoPi;
-
-    }
+    const stats =
+      loop.getStats();
 
 
-    return (
-      a +
-      difference * alpha
-    );
+    loopStats = {
 
-  }
+      stepsPerSecond:
+        stats.stepsPerSecond,
 
+      framesPerSecond:
+        stats.framesPerSecond,
 
-  // =========================
-  // RENDER
-  // =========================
+      lastFrameDuration:
+        stats.lastFrameDuration
 
-  function render(alpha) {
-
-    const ship =
-      getShip();
+    };
 
 
     hud.update(
-      ship,
+      renderShip,
       loopStats
     );
 
 
-    if (ship) {
-
-      const renderedShip = {
-
-        x:
-          lerp(
-            previous.x,
-            ship.pos.x,
-            alpha
-          ),
-
-        y:
-          lerp(
-            previous.y,
-            ship.pos.y,
-            alpha
-          ),
-
-        angle:
-          lerpAngle(
-            previous.angle,
-            ship.angle,
-            alpha
-          ),
-
-        thrust:
-          ship.thrust
-
-      };
-
-
-      drawScene(
-        canvas.ctx,
-        canvas.width,
-        canvas.height,
-        renderedShip,
-        world,
-        assets
-      );
-
-    } else {
-
-      drawScene(
-        canvas.ctx,
-        canvas.width,
-        canvas.height,
-        null,
-        world,
-        assets
-      );
-
-    }
+    drawScene(
+      canvas.ctx,
+      canvas.width,
+      canvas.height,
+      renderShip,
+      renderWorld,
+      assets
+    );
 
   }
 
 
-  // =========================
-  // GAME LOOP
-  // =========================
+  /*
+   * Send input to server.
+   *
+   * The client does NOT move
+   * the ship itself.
+   */
+
+  let inputAccumulator =
+    0;
+
 
   const loop =
     createLoop({
@@ -503,74 +604,60 @@ async function startGame() {
 
       simulate(dt) {
 
-        const ship =
-          getShip();
+        inputAccumulator += dt;
 
 
-        if (ship) {
+        /*
+         * Server simulation is 30 Hz.
+         * Send input approximately
+         * 30 times per second.
+         */
 
-          previous = {
+        if (
+          inputAccumulator >=
+          1 / 30
+        ) {
 
-            x:
-              ship.pos.x,
+          inputAccumulator -=
+            1 / 30;
 
-            y:
-              ship.pos.y,
 
-            angle:
-              ship.angle,
+          network.sendInput({
+
+            left:
+              input.isDown(
+                "ArrowLeft"
+              ),
+
+            right:
+              input.isDown(
+                "ArrowRight"
+              ),
 
             thrust:
-              ship.thrust
+              input.isDown(
+                "ArrowUp"
+              ),
 
-          };
-
-
-          if (
-            input.justPressed(
-              "Space"
-            )
-          ) {
-
-            ship.fire();
-
-
-            world.dispatchEvent(
-              new CustomEvent(
-                "fired"
+            fire:
+              input.isDown(
+                "Space"
               )
-            );
 
-          }
-
-
-          wrapShip(
-            ship,
-            canvas.width,
-            canvas.height
-          );
+          });
 
         }
 
 
-        const inputs = {
-
-          input,
-
-          width:
-            canvas.width,
-
-          height:
-            canvas.height
-
-        };
-
-
-        world.step(
-          dt,
-          inputs
-        );
-
+        /*
+         * IMPORTANT:
+         *
+         * No world.step().
+         * No ship.fire().
+         * No local movement.
+         *
+         * Server is authoritative.
+         */
 
         input.endFrame();
 
@@ -582,24 +669,9 @@ async function startGame() {
     });
 
 
-  // =========================
-  // STATS UPDATE
-  // =========================
-
-  setInterval(
-    () => {
-
-      loopStats =
-        loop.getStats();
-
-    },
-    100
-  );
-
-
-  // =========================
-  // START
-  // =========================
+  /*
+   * Start client loop.
+   */
 
   loop.start();
 

@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { setupRoomLogging } from "./logger.js";
+import { Match } from "./match.js";
 
 export const MAX_PLAYERS_PER_ROOM = 16;
 export const MAX_ROOMS = 50;
@@ -7,11 +8,15 @@ export const MAX_ROOMS = 50;
 export class Room extends EventEmitter {
   constructor(id, name = id) {
     super();
+
     this.id = id;
     this.name = name;
+
     this.players = new Map();
 
-    // Запускаем стрим-логирование для комнаты
+    // M1: окремий server-side simulation match для кімнати
+    this.match = new Match(id);
+
     setupRoomLogging(this);
   }
 
@@ -21,8 +26,15 @@ export class Room extends EventEmitter {
     }
 
     this.players.set(player.id, player);
-    
-    // Логируем присоединение игрока
+
+    // M1: реєструємо клієнта в Match
+    this.match.addClient(player.id, player);
+
+    // Запускаємо simulation, коли з'явився перший гравець
+    if (this.players.size === 1) {
+      this.match.start();
+    }
+
     this.emit("log-event", {
       type: "join",
       playerId: player.id,
@@ -44,7 +56,9 @@ export class Room extends EventEmitter {
 
     this.players.delete(playerId);
 
-    // Логируем выход игрока
+    // M1: видаляємо клієнта з Match
+    this.match.removeClient(playerId);
+
     this.emit("log-event", {
       type: "leave",
       playerId: player.id,
@@ -57,6 +71,9 @@ export class Room extends EventEmitter {
     });
 
     if (this.players.size === 0) {
+      // Зупиняємо server tick, коли кімната порожня
+      this.match.stop();
+
       this.emit("empty", {
         roomId: this.id,
       });
@@ -76,10 +93,12 @@ export class Room extends EventEmitter {
   }
 
   roster() {
-    return [...this.players.values()].map(({ id, name }) => ({
-      id,
-      name,
-    }));
+    return [...this.players.values()].map(
+      ({ id, name }) => ({
+        id,
+        name,
+      })
+    );
   }
 }
 
@@ -94,19 +113,28 @@ export class RoomManager {
     }
 
     if (this.rooms.has(id)) {
-      throw new Error(`Room already exists: ${id}`);
+      throw new Error(
+        `Room already exists: ${id}`
+      );
     }
 
     const room = new Room(id, name);
 
-    room.on("empty", ({ roomId }) => {
-      // Не удаляем дефолтные комнаты alpha и beta, оставляем их навсегда
-      if (roomId !== "alpha" && roomId !== "beta") {
-        this.rooms.delete(roomId);
+    room.on(
+      "empty",
+      ({ roomId }) => {
+        // Не видаляємо дефолтні кімнати
+        if (
+          roomId !== "alpha" &&
+          roomId !== "beta"
+        ) {
+          this.rooms.delete(roomId);
+        }
       }
-    });
+    );
 
     this.rooms.set(id, room);
+
     return room;
   }
 
@@ -115,14 +143,19 @@ export class RoomManager {
   }
 
   list() {
-    return [...this.rooms.values()].map((room) => ({
-      id: room.id,
-      name: room.name,
-      players: room.players.size,
-    }));
+    return [...this.rooms.values()].map(
+      (room) => ({
+        id: room.id,
+        name: room.name,
+        players: room.players.size,
+      })
+    );
   }
 
   getOrCreate(id, name = id) {
-    return this.get(id) || this.create(id, name);
+    return (
+      this.get(id) ||
+      this.create(id, name)
+    );
   }
 }

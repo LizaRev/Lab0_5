@@ -1,14 +1,19 @@
-export async function fetchJson(url, { signal } = {}) {
-    const response = await fetch(url, {
-        signal
-    });
+export async function fetchJson(
+    url,
+    { signal } = {}
+) {
+    const response = await fetch(
+        url,
+        { signal }
+    );
 
     if (!response.ok) {
         const error = new Error(
             `HTTP ${response.status}: ${response.statusText}`
         );
 
-        error.status = response.status;
+        error.status =
+            response.status;
 
         throw error;
     }
@@ -17,69 +22,90 @@ export async function fetchJson(url, { signal } = {}) {
 }
 
 
-export function loadImage(url, { signal } = {}) {
-    return new Promise((resolve, reject) => {
-        const image = new Image();
+export function loadImage(
+    url,
+    { signal } = {}
+) {
+    return new Promise(
+        (resolve, reject) => {
 
-        let aborted = false;
+            const image =
+                new Image();
 
-        const abortHandler = () => {
-            aborted = true;
-            image.src = "";
+            let aborted = false;
 
-            reject(
-                new DOMException(
-                    "Завантаження скасовано",
-                    "AbortError"
-                )
-            );
-        };
 
-        if (signal) {
-            if (signal.aborted) {
-                abortHandler();
-                return;
-            }
+            const abortHandler = () => {
 
-            signal.addEventListener(
-                "abort",
-                abortHandler,
-                { once: true }
-            );
-        }
+                aborted = true;
 
-        image.onload = () => {
-            if (signal) {
-                signal.removeEventListener(
-                    "abort",
-                    abortHandler
-                );
-            }
+                image.src = "";
 
-            if (!aborted) {
-                resolve(image);
-            }
-        };
-
-        image.onerror = () => {
-            if (signal) {
-                signal.removeEventListener(
-                    "abort",
-                    abortHandler
-                );
-            }
-
-            if (!aborted) {
                 reject(
-                    new Error(
-                        `Не вдалося завантажити зображення: ${url}`
+                    new DOMException(
+                        "Завантаження скасовано",
+                        "AbortError"
                     )
                 );
-            }
-        };
+            };
 
-        image.src = url;
-    });
+
+            if (signal) {
+
+                if (signal.aborted) {
+                    abortHandler();
+                    return;
+                }
+
+                signal.addEventListener(
+                    "abort",
+                    abortHandler,
+                    { once: true }
+                );
+            }
+
+
+            image.onload = () => {
+
+                if (signal) {
+                    signal.removeEventListener(
+                        "abort",
+                        abortHandler
+                    );
+                }
+
+                if (!aborted) {
+                    resolve(image);
+                }
+            };
+
+
+            image.onerror = () => {
+
+                if (signal) {
+                    signal.removeEventListener(
+                        "abort",
+                        abortHandler
+                    );
+                }
+
+                if (!aborted) {
+
+                    const error =
+                        new Error(
+                            `Не вдалося завантажити зображення: ${url}`
+                        );
+
+                    error.url = url;
+
+                    reject(error);
+                }
+            };
+
+
+            image.src = url;
+        }
+    );
 }
 
 
@@ -88,29 +114,39 @@ export async function loadAudio(
     url,
     { signal } = {}
 ) {
-    const response = await fetch(url, {
-        signal
-    });
-
-    if (!response.ok) {
-        const error = new Error(
-            `HTTP ${response.status}: ${response.statusText}`
+    const response =
+        await fetch(
+            url,
+            { signal }
         );
 
-        error.status = response.status;
+
+    if (!response.ok) {
+
+        const error =
+            new Error(
+                `HTTP ${response.status}: ${response.statusText}`
+            );
+
+        error.status =
+            response.status;
 
         throw error;
     }
 
+
     const arrayBuffer =
         await response.arrayBuffer();
 
+
     if (signal?.aborted) {
+
         throw new DOMException(
             "Завантаження скасовано",
             "AbortError"
         );
     }
+
 
     return await ctx.decodeAudioData(
         arrayBuffer
@@ -122,39 +158,34 @@ export async function loadJson(
     url,
     { signal } = {}
 ) {
-    return await fetchJson(url, {
-        signal
-    });
+    return await fetchJson(
+        url,
+        { signal }
+    );
 }
 
 
-function sleep(ms, signal) {
-    return new Promise((resolve, reject) => {
-        const timer = setTimeout(
-            resolve,
-            ms
-        );
+function sleep(
+    ms,
+    signal
+) {
+    return new Promise(
+        (resolve, reject) => {
 
-        if (!signal) {
-            return;
-        }
+            const timer =
+                setTimeout(
+                    resolve,
+                    ms
+                );
 
-        if (signal.aborted) {
-            clearTimeout(timer);
 
-            reject(
-                new DOMException(
-                    "Завантаження скасовано",
-                    "AbortError"
-                )
-            );
+            if (!signal) {
+                return;
+            }
 
-            return;
-        }
 
-        signal.addEventListener(
-            "abort",
-            () => {
+            if (signal.aborted) {
+
                 clearTimeout(timer);
 
                 reject(
@@ -163,10 +194,28 @@ function sleep(ms, signal) {
                         "AbortError"
                     )
                 );
-            },
-            { once: true }
-        );
-    });
+
+                return;
+            }
+
+
+            signal.addEventListener(
+                "abort",
+                () => {
+
+                    clearTimeout(timer);
+
+                    reject(
+                        new DOMException(
+                            "Завантаження скасовано",
+                            "AbortError"
+                        )
+                    );
+                },
+                { once: true }
+            );
+        }
+    );
 }
 
 
@@ -180,29 +229,40 @@ export async function withRetry(
 ) {
     let lastError;
 
+
     for (
         let attempt = 1;
         attempt <= attempts;
         attempt++
     ) {
+
         if (signal?.aborted) {
+
             throw new DOMException(
                 "Завантаження скасовано",
                 "AbortError"
             );
         }
 
+
         try {
-            return await fn(signal);
+
+            return await fn(
+                signal
+            );
 
         } catch (error) {
+
             lastError = error;
 
+
             if (
-                error.name === "AbortError"
+                error.name ===
+                "AbortError"
             ) {
                 throw error;
             }
+
 
             if (
                 error.status >= 400 &&
@@ -211,28 +271,78 @@ export async function withRetry(
                 throw error;
             }
 
-            if (attempt === attempts) {
+
+            if (
+                attempt === attempts
+            ) {
                 throw lastError;
             }
 
-            const exponentialDelay =
+
+            const delay =
                 baseMs *
                 Math.pow(
                     2,
                     attempt - 1
                 );
 
+
             const jitter =
                 Math.random() * 100;
 
+
             await sleep(
-                exponentialDelay + jitter,
+                delay + jitter,
                 signal
             );
         }
     }
 
+
     throw lastError;
+}
+
+
+function resolveAssetUrl(
+    assetUrl,
+    manifestUrl
+) {
+    if (
+        typeof assetUrl !==
+        "string"
+    ) {
+        throw new Error(
+            `Некоректний URL ресурсу: ${assetUrl}`
+        );
+    }
+
+
+    if (
+        !manifestUrl
+    ) {
+        throw new Error(
+            "Не передано URL manifest.json"
+        );
+    }
+
+
+    try {
+
+        const resolved =
+            new URL(
+                assetUrl,
+                manifestUrl
+            );
+
+
+        return resolved.href;
+
+    } catch (error) {
+
+        throw new Error(
+            `Не вдалося створити URL ресурсу "${assetUrl}" відносно "${manifestUrl}": ${error.message}`
+        );
+    }
 }
 
 
@@ -240,22 +350,39 @@ async function loadManifestItem(
     item,
     ctx,
     signal,
-    baseUrl
+    manifestUrl
 ) {
-    // Перетворюємо "./sprites/ship.png"
-    // у повний URL відносно manifest.json
-    const url = new URL(
-        item.url,
-        baseUrl
-    ).href;
+    const url =
+        resolveAssetUrl(
+            item.url,
+            manifestUrl
+        );
 
-    if (item.type === "image") {
-        return await loadImage(url, {
-            signal
-        });
+
+    console.log(
+        "Loading asset:",
+        item.name,
+        url
+    );
+
+
+    if (
+        item.type ===
+        "image"
+    ) {
+
+        return await loadImage(
+            url,
+            { signal }
+        );
     }
 
-    if (item.type === "audio") {
+
+    if (
+        item.type ===
+        "audio"
+    ) {
+
         return await loadAudio(
             ctx,
             url,
@@ -263,11 +390,18 @@ async function loadManifestItem(
         );
     }
 
-    if (item.type === "json") {
-        return await loadJson(url, {
-            signal
-        });
+
+    if (
+        item.type ===
+        "json"
+    ) {
+
+        return await loadJson(
+            url,
+            { signal }
+        );
     }
+
 
     throw new Error(
         `Невідомий тип ресурсу: ${item.type}`
@@ -290,19 +424,52 @@ export async function loadAll(
         ...(manifest.data || [])
     ];
 
-    const total = items.length;
 
-    if (total === 0) {
+    const total =
+        items.length;
+
+
+    if (
+        total === 0
+    ) {
+
         onProgress(1);
+
         return {};
     }
 
+
+    if (!baseUrl) {
+
+        throw new Error(
+            "loadAll: не передано baseUrl manifest.json"
+        );
+    }
+
+
+    console.log(
+        "Manifest URL:",
+        baseUrl
+    );
+
+
+    console.log(
+        "Assets:",
+        items
+    );
+
+
     let completed = 0;
+
 
     const loadedAssets = {};
 
-    const promises = items.map(
-        async (item) => {
+
+    for (
+        const item of items
+    ) {
+
+        try {
 
             const result =
                 await withRetry(
@@ -320,20 +487,34 @@ export async function loadAll(
                     }
                 );
 
-            loadedAssets[item.name] =
-                result;
+
+            loadedAssets[
+                item.name
+            ] = result;
+
 
             completed++;
+
 
             onProgress(
                 completed / total
             );
 
-            return result;
-        }
-    );
 
-    await Promise.all(promises);
+        } catch (error) {
+
+            console.error(
+                "Помилка завантаження ресурсу:",
+                item.name,
+                item.url,
+                error
+            );
+
+
+            throw error;
+        }
+    }
+
 
     return loadedAssets;
 }

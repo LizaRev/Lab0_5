@@ -36,7 +36,10 @@ export class Lobby extends EventTarget {
       },
 
       onerror: (error) => {
-        console.error("WebSocket error:", error);
+        console.error(
+          "WebSocket error:",
+          error
+        );
 
         this.dispatchEvent(
           new CustomEvent("connectionError", {
@@ -51,7 +54,8 @@ export class Lobby extends EventTarget {
   }
 
   setPlayerName(name) {
-    this.playerName = name.trim().slice(0, 20);
+    this.playerName =
+      name.trim().slice(0, 20);
   }
 
   async refresh() {
@@ -59,28 +63,36 @@ export class Lobby extends EventTarget {
       this.controller.abort();
     }
 
-    this.controller = new AbortController();
+    this.controller =
+      new AbortController();
 
-    const controller = this.controller;
+    const controller =
+      this.controller;
 
     try {
-      const response = await fetch("/api/rooms", {
-        signal: controller.signal,
-      });
+      const response =
+        await fetch("/api/rooms", {
+          signal: controller.signal,
+        });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(
+          `HTTP ${response.status}`
+        );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      const rooms = Array.isArray(data)
-        ? data
-        : data.rooms;
+      const rooms =
+        Array.isArray(data)
+          ? data
+          : data.rooms;
 
-      this.rooms = Array.isArray(rooms)
-        ? rooms
-        : [];
+      this.rooms =
+        Array.isArray(rooms)
+          ? rooms
+          : [];
 
       this.dispatchEvent(
         new CustomEvent("roomsUpdated", {
@@ -114,16 +126,20 @@ export class Lobby extends EventTarget {
 
     this.refresh();
 
-    this.refreshTimer = setInterval(() => {
-      this.refresh();
-    }, interval);
+    this.refreshTimer =
+      setInterval(() => {
+        this.refresh();
+      }, interval);
 
     this.connection.connect();
   }
 
   stopAutoRefresh() {
     if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
+      clearInterval(
+        this.refreshTimer
+      );
+
       this.refreshTimer = null;
     }
 
@@ -134,9 +150,10 @@ export class Lobby extends EventTarget {
   }
 
   join(roomId) {
-    const room = this.rooms.find(
-      (item) => item.id === roomId
-    );
+    const room =
+      this.rooms.find(
+        (item) => item.id === roomId
+      );
 
     if (!room) {
       throw new Error(
@@ -145,17 +162,28 @@ export class Lobby extends EventTarget {
     }
 
     if (!this.playerName) {
-      throw new Error("Player name is required");
+      throw new Error(
+        "Player name is required"
+      );
     }
 
-    this.currentRoomId = room.id;
-    this.currentRoom = room;
+    this.currentRoomId =
+      room.id;
+
+    this.currentRoom =
+      room;
 
     this.stopAutoRefresh();
 
     this.connection.connect();
 
-    this.sendJoin();
+    if (
+      this.connection.socket &&
+      this.connection.socket.readyState ===
+        WebSocket.OPEN
+    ) {
+      this.sendJoin();
+    }
   }
 
   sendJoin() {
@@ -167,7 +195,8 @@ export class Lobby extends EventTarget {
       version: PROTOCOL_VERSION,
       type: "join",
       roomId: this.currentRoomId,
-      name: this.playerName || "Guest",
+      name:
+        this.playerName || "Guest",
     });
   }
 
@@ -182,7 +211,8 @@ export class Lobby extends EventTarget {
   }
 
   sendChat(text) {
-    const value = text.trim();
+    const value =
+      text.trim();
 
     if (!value) {
       return;
@@ -217,6 +247,14 @@ export class Lobby extends EventTarget {
         );
         break;
 
+      case "snapshot":
+        this.dispatchEvent(
+          new CustomEvent("snapshot", {
+            detail: message,
+          })
+        );
+        break;
+
       case "error":
         console.error(
           "Server error:",
@@ -241,7 +279,8 @@ export class Lobby extends EventTarget {
   handleRoster(message) {
     if (
       this.currentRoomId &&
-      message.roomId !== this.currentRoomId
+      message.roomId !==
+        this.currentRoomId
     ) {
       return;
     }
@@ -254,14 +293,17 @@ export class Lobby extends EventTarget {
 
     if (
       this.currentRoomId &&
-      message.roomId === this.currentRoomId
+      message.roomId ===
+        this.currentRoomId
     ) {
       this.dispatchEvent(
         new CustomEvent("joined", {
           detail: {
             room: this.currentRoom,
-            playerName: this.playerName,
-            players: message.players,
+            playerName:
+              this.playerName,
+            players:
+              message.players,
           },
         })
       );
