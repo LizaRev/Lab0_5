@@ -61,9 +61,29 @@ async function startGame() {
     joinedData.players || [];
 
 
+  /*
+   * M2:
+   * Identify the local player.
+   */
+
+  const localPlayer =
+    initialPlayers.find(
+      (player) =>
+        player.name === playerName
+    );
+
+  const localPlayerId =
+    localPlayer?.id || null;
+
+
   console.log(
     "Player:",
     playerName
+  );
+
+  console.log(
+    "Local player:",
+    localPlayerId
   );
 
   console.log(
@@ -688,4 +708,3 @@ startGame().catch(
 
   }
 );
-

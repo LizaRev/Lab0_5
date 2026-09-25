@@ -670,6 +670,9 @@ export class Match {
       roomId:
         this.roomId,
 
+      playerId:
+        playerId,
+
       lastProcessedSeq:
         inputState?.seq ?? -1,
 
@@ -778,4 +781,3 @@ export class Match {
     }
   }
 }
-

@@ -7,11 +7,19 @@ import {
   validateMessage,
 } from "./protocol.js";
 
+import {
+  encodeBinaryMessage,
+  decodeBinaryMessage,
+} from "../../shared/protocol/binary.js";
+
 const JOIN_TIMEOUT_MS = 5_000;
 const HEARTBEAT_MS = 15_000;
 const MAX_MISSED_PONGS = 2;
 
 const MAX_BUFFERED_AMOUNT = 64 * 1024;
+
+const USE_BINARY_PROTOCOL =
+  process.env.BINARY_PROTOCOL === "true";
 
 // Input приходить часто, тому 10 повідомлень/сек
 // для netcode недостатньо.
@@ -147,8 +155,15 @@ export function attachWebSocketServer(
           return false;
         }
 
+        const useBinary =
+          USE_BINARY_PROTOCOL &&
+          (message?.type === MESSAGE_TYPES.INPUT ||
+            message?.type === MESSAGE_TYPES.SNAPSHOT);
+
         socket.send(
-          JSON.stringify(message)
+          useBinary
+            ? encodeBinaryMessage(message)
+            : JSON.stringify(message)
         );
 
         return true;
@@ -252,7 +267,7 @@ export function attachWebSocketServer(
 
       socket.on(
         "message",
-        (raw) => {
+        (raw, isBinary) => {
 
           if (
             !checkRateLimit()
@@ -278,15 +293,16 @@ export function attachWebSocketServer(
 
           try {
 
-            message =
-              JSON.parse(
-                raw.toString()
-              );
+            message = isBinary
+              ? decodeBinaryMessage(raw)
+              : JSON.parse(raw.toString());
 
           } catch {
 
             sendError(
-              "Invalid JSON"
+              isBinary
+                ? "Invalid binary message"
+                : "Invalid JSON"
             );
 
             socket.close(

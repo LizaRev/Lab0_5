@@ -1,3 +1,5 @@
+import { decodeBinaryMessage } from "../../shared/protocol/binary.js";
+
 const DEFAULT_RECONNECT_DELAYS = [500, 1000, 2000, 4000, 8000, 15000];
 
 export class Connection {
@@ -51,7 +53,7 @@ export class Connection {
       this.onopen?.();
     });
 
-    socket.addEventListener("message", (event) => {
+    socket.addEventListener("message", async (event) => {
       if (socket !== this.socket) {
         return;
       }
@@ -59,9 +61,41 @@ export class Connection {
       let message;
 
       try {
-        message = JSON.parse(event.data);
-      } catch {
-        this.onerror?.(new Error("Received invalid JSON"));
+        console.log(
+          "WS DATA:",
+          typeof event.data,
+          event.data?.constructor?.name
+        );
+
+        if (event.data instanceof ArrayBuffer) {
+          message = decodeBinaryMessage(event.data);
+        } else if (
+          event.data &&
+          typeof event.data.arrayBuffer === "function"
+        ) {
+          const buffer = await event.data.arrayBuffer();
+          message = decodeBinaryMessage(buffer);
+        } else if (typeof event.data === "string") {
+          message = JSON.parse(event.data);
+        } else {
+          throw new Error(
+            `Unsupported WebSocket data type: ${typeof event.data}`
+          );
+        }
+
+        if (message.type === "snapshot") {
+          console.log(
+            "BINARY SNAPSHOT:",
+            message.world?.entities?.length ?? 0,
+            "entities"
+          );
+        }
+      } catch (error) {
+        this.onerror?.(
+          new Error(
+            `Failed to decode WebSocket message: ${error.message}`
+          )
+        );
         return;
       }
 
