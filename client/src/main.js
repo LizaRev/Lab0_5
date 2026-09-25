@@ -1,4 +1,5 @@
 import { createLoop } from './loop.js';
+
 import { createInput } from './input.js';
 
 import { World } from './sim/world.js';
@@ -143,7 +144,7 @@ async function startGame() {
 
 
   /*
-   * M1:
+   * M2 check:
    * latency = 100 ms
    * jitter = 0
    * packet loss = 0
@@ -168,11 +169,6 @@ async function startGame() {
 
       latestSnapshot =
         snapshot;
-
-      /*
-       * Для перевірки можна бачити,
-       * що snapshot-и приходять.
-       */
 
       console.log(
         "Snapshot:",
@@ -300,8 +296,8 @@ async function startGame() {
    * because HUD/audio expect it.
    *
    * IMPORTANT:
-   * world.step() is NEVER called
-   * on the client.
+   * We do NOT use world.step()
+   * for client prediction.
    */
 
   const world =
@@ -451,9 +447,7 @@ async function startGame() {
 
 
   /*
-   * Create a render-only ship.
-   *
-   * It is NOT simulated locally.
+   * Render ship.
    */
 
   function createRenderShip(
@@ -504,8 +498,329 @@ async function startGame() {
 
 
   /*
-   * Apply authoritative
-   * server snapshot.
+   * =====================================================
+   * M2 — Prediction state
+   * =====================================================
+   */
+
+  const pendingInputs = [];
+
+
+  /*
+   * Local predicted state.
+   *
+   * This is deliberately kept separate from
+   * the authoritative snapshot.
+   */
+
+  let predictedShip = null;
+
+
+  /*
+   * M2 — Smooth correction
+   *
+   * Correction is applied gradually
+   * over approximately 100 ms.
+   */
+
+  let correctionX = 0;
+  let correctionY = 0;
+
+  const correctionDuration = 0.1;
+  let correctionTimeRemaining = 0;
+
+
+  /*
+   * Create a local prediction ship from
+   * an authoritative snapshot.
+   */
+
+  function createPredictedShip(
+    snapshotShip
+  ) {
+
+    if (!snapshotShip) {
+      return null;
+    }
+
+
+    return {
+
+      x:
+        snapshotShip.x,
+
+      y:
+        snapshotShip.y,
+
+      vx:
+        snapshotShip.vx ?? 0,
+
+      vy:
+        snapshotShip.vy ?? 0,
+
+      angle:
+        snapshotShip.angle ?? 0,
+
+      thrust:
+        snapshotShip.thrust ?? 0,
+
+      hp:
+        snapshotShip.hp ?? 0,
+
+      shield:
+        false,
+
+      alive:
+        true
+
+    };
+
+  }
+
+
+  /*
+   * Apply one shared Ship.update()-style
+   * simulation step to the local predicted ship.
+   *
+   * This mirrors shared/sim/ship.js.
+   */
+
+  function integratePredictedShip(
+    ship,
+    dt,
+    inputState
+  ) {
+
+    if (!ship) {
+      return;
+    }
+
+
+    const rotationSpeed = 3;
+    const thrustPower = 200;
+    const drag = 0.99;
+    const maxSpeed = 400;
+
+
+    if (inputState.left) {
+
+      ship.angle -=
+        rotationSpeed * dt;
+
+    }
+
+
+    if (inputState.right) {
+
+      ship.angle +=
+        rotationSpeed * dt;
+
+    }
+
+
+    ship.thrust =
+      inputState.thrust ? 1 : 0;
+
+
+    if (ship.thrust) {
+
+      const angle =
+        ship.angle - Math.PI / 2;
+
+      const directionX =
+        Math.cos(angle);
+
+      const directionY =
+        Math.sin(angle);
+
+
+      ship.vx +=
+        directionX *
+        thrustPower *
+        dt;
+
+      ship.vy +=
+        directionY *
+        thrustPower *
+        dt;
+
+    }
+
+
+    const dragFactor =
+      Math.pow(
+        drag,
+        dt * 60
+      );
+
+
+    ship.vx *=
+      dragFactor;
+
+    ship.vy *=
+      dragFactor;
+
+
+    const speed =
+      Math.hypot(
+        ship.vx,
+        ship.vy
+      );
+
+
+    if (
+      speed > maxSpeed
+    ) {
+
+      ship.vx =
+        (ship.vx / speed) *
+        maxSpeed;
+
+      ship.vy =
+        (ship.vy / speed) *
+        maxSpeed;
+
+    }
+
+
+    ship.x +=
+      ship.vx * dt;
+
+    ship.y +=
+      ship.vy * dt;
+
+  }
+
+
+  /*
+   * Re-apply all inputs that the server
+   * has not confirmed yet.
+   */
+
+  function reconcile(
+    snapshot
+  ) {
+
+    const snapshotShip =
+      getSnapshotShip(
+        snapshot
+      );
+
+
+    if (!snapshotShip) {
+      return;
+    }
+
+
+    const lastProcessedSeq =
+      snapshot.lastProcessedSeq ?? -1;
+
+
+    /*
+     * Remove inputs already processed
+     * by the authoritative server.
+     */
+
+    while (
+      pendingInputs.length > 0 &&
+      pendingInputs[0].seq <=
+        lastProcessedSeq
+    ) {
+
+      pendingInputs.shift();
+
+    }
+
+
+    /*
+     * Start from the authoritative
+     * server state.
+     */
+
+    const authoritativeShip =
+      createPredictedShip(
+        snapshotShip
+      );
+
+
+    /*
+     * Re-apply inputs that were sent
+     * after the server's lastProcessedSeq.
+     */
+
+    for (
+      const pending of pendingInputs
+    ) {
+
+      integratePredictedShip(
+        authoritativeShip,
+        1 / 30,
+        pending.input
+      );
+
+    }
+
+
+    /*
+     * Calculate correction between
+     * current prediction and the
+     * newly reconstructed prediction.
+     */
+
+    if (predictedShip) {
+
+      const targetCorrectionX =
+        predictedShip.x -
+        authoritativeShip.x;
+
+      const targetCorrectionY =
+        predictedShip.y -
+        authoritativeShip.y;
+
+
+      correctionX =
+        targetCorrectionX;
+
+      correctionY =
+        targetCorrectionY;
+
+      correctionTimeRemaining =
+        correctionDuration;
+
+    }
+
+
+    /*
+     * Replace prediction with the
+     * server-authoritative state plus
+     * unconfirmed inputs.
+     */
+
+    predictedShip =
+      authoritativeShip;
+
+
+    /*
+     * Correction magnitude.
+     */
+
+    const correctionMagnitude =
+      Math.hypot(
+        correctionX,
+        correctionY
+      );
+
+
+    console.log(
+      "M2 correction:",
+      correctionMagnitude
+    );
+
+  }
+
+
+  /*
+   * Apply authoritative snapshot.
    */
 
   function applySnapshot(
@@ -524,10 +839,60 @@ async function startGame() {
       );
 
 
-    renderShip =
-      createRenderShip(
-        snapshotShip
-      );
+    /*
+     * M2:
+     * Reconcile the predicted ship
+     * against the authoritative snapshot.
+     */
+
+    reconcile(
+      snapshot
+    );
+
+
+    /*
+     * Render predicted local ship
+     * instead of waiting for the next
+     * server snapshot.
+     */
+
+    if (predictedShip) {
+
+      renderShip = {
+
+        x:
+          predictedShip.x +
+          correctionX,
+
+        y:
+          predictedShip.y +
+          correctionY,
+
+        angle:
+          predictedShip.angle,
+
+        thrust:
+          predictedShip.thrust,
+
+        hp:
+          predictedShip.hp,
+
+        shield:
+          false,
+
+        alive:
+          true
+
+      };
+
+    } else {
+
+      renderShip =
+        createRenderShip(
+          snapshotShip
+        );
+
+    }
 
 
     world.score =
@@ -552,9 +917,7 @@ async function startGame() {
 
 
   /*
-   * Render only.
-   *
-   * There is NO local physics.
+   * Render.
    */
 
   function render() {
@@ -564,6 +927,90 @@ async function startGame() {
       applySnapshot(
         latestSnapshot
       );
+
+    }
+
+
+    /*
+     * Between snapshots, smoothly reduce
+     * the correction over approximately
+     * 100 ms.
+     */
+
+    if (
+      correctionTimeRemaining > 0
+    ) {
+
+      const correctionStep =
+        Math.min(
+          1 / 60,
+          correctionTimeRemaining
+        );
+
+
+      const factor =
+        correctionStep /
+        correctionTimeRemaining;
+
+
+      correctionX *=
+        1 - factor;
+
+      correctionY *=
+        1 - factor;
+
+
+      correctionTimeRemaining -=
+        correctionStep;
+
+
+      if (
+        correctionTimeRemaining <= 0
+      ) {
+
+        correctionTimeRemaining = 0;
+
+        correctionX = 0;
+        correctionY = 0;
+
+      }
+
+    }
+
+
+    /*
+     * Between snapshots, continue rendering
+     * the current predicted state.
+     */
+
+    if (predictedShip) {
+
+      renderShip = {
+
+        x:
+          predictedShip.x +
+          correctionX,
+
+        y:
+          predictedShip.y +
+          correctionY,
+
+        angle:
+          predictedShip.angle,
+
+        thrust:
+          predictedShip.thrust,
+
+        hp:
+          predictedShip.hp,
+
+        shield:
+          false,
+
+        alive:
+          true
+
+      };
 
     }
 
@@ -605,10 +1052,8 @@ async function startGame() {
 
 
   /*
-   * Send input to server.
-   *
-   * The client does NOT move
-   * the ship itself.
+   * Send input to server
+   * and perform local prediction.
    */
 
   let inputAccumulator =
@@ -624,25 +1069,14 @@ async function startGame() {
 
       simulate(dt) {
 
-        inputAccumulator += dt;
-
-
         /*
-         * Server simulation is 30 Hz.
-         * Send input approximately
-         * 30 times per second.
+         * Local prediction runs every
+         * client simulation step.
          */
 
-        if (
-          inputAccumulator >=
-          1 / 30
-        ) {
+        if (predictedShip) {
 
-          inputAccumulator -=
-            1 / 30;
-
-
-          network.sendInput({
+          const currentInput = {
 
             left:
               input.isDown(
@@ -664,20 +1098,78 @@ async function startGame() {
                 "Space"
               )
 
-          });
+          };
+
+
+          integratePredictedShip(
+            predictedShip,
+            dt,
+            currentInput
+          );
 
         }
 
 
+        inputAccumulator += dt;
+
+
         /*
-         * IMPORTANT:
-         *
-         * No world.step().
-         * No ship.fire().
-         * No local movement.
-         *
-         * Server is authoritative.
+         * Server simulation is 30 Hz.
+         * Send input approximately
+         * 30 times per second.
          */
+
+        if (
+          inputAccumulator >=
+          1 / 30
+        ) {
+
+          inputAccumulator -=
+            1 / 30;
+
+
+          const inputState = {
+
+            left:
+              input.isDown(
+                "ArrowLeft"
+              ),
+
+            right:
+              input.isDown(
+                "ArrowRight"
+              ),
+
+            thrust:
+              input.isDown(
+                "ArrowUp"
+              ),
+
+            fire:
+              input.isDown(
+                "Space"
+              )
+
+          };
+
+
+          const seq =
+            network.sendInput(
+              inputState
+            );
+
+
+          pendingInputs.push({
+
+            seq,
+
+            input:
+              inputState
+
+          });
+
+        }
+
 
         input.endFrame();
 
