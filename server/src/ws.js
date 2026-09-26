@@ -21,8 +21,6 @@ const MAX_BUFFERED_AMOUNT = 64 * 1024;
 const USE_BINARY_PROTOCOL =
   process.env.BINARY_PROTOCOL === "true";
 
-// Input приходить часто, тому 10 повідомлень/сек
-// для netcode недостатньо.
 const TOKEN_BUCKET_CAPACITY = 120;
 const TOKEN_REFILL_RATE = 60;
 
@@ -81,10 +79,6 @@ export function attachWebSocketServer(
       let joined = false;
       let missedPongs = 0;
 
-      // =========================
-      // RATE LIMIT
-      // =========================
-
       let tokens =
         TOKEN_BUCKET_CAPACITY;
 
@@ -116,10 +110,6 @@ export function attachWebSocketServer(
 
         return true;
       }
-
-      // =========================
-      // SEND
-      // =========================
 
       const send = (
         message,
@@ -171,10 +161,6 @@ export function attachWebSocketServer(
 
       player.send = send;
 
-      // =========================
-      // ERROR
-      // =========================
-
       const sendError = (
         error
       ) => {
@@ -192,10 +178,6 @@ export function attachWebSocketServer(
           true
         );
       };
-
-      // =========================
-      // JOIN TIMEOUT
-      // =========================
 
       const joinTimeout =
         setTimeout(
@@ -216,10 +198,6 @@ export function attachWebSocketServer(
           },
           JOIN_TIMEOUT_MS
         );
-
-      // =========================
-      // HEARTBEAT
-      // =========================
 
       const heartbeat =
         setInterval(
@@ -260,10 +238,6 @@ export function attachWebSocketServer(
           missedPongs = 0;
         }
       );
-
-      // =========================
-      // MESSAGE
-      // =========================
 
       socket.on(
         "message",
@@ -343,10 +317,6 @@ export function attachWebSocketServer(
         }
       );
 
-      // =========================
-      // CLOSE
-      // =========================
-
       socket.on(
         "close",
         () => {
@@ -392,10 +362,6 @@ export function attachWebSocketServer(
         }
       );
 
-      // =========================
-      // ERROR
-      // =========================
-
       socket.on(
         "error",
         (error) => {
@@ -407,10 +373,6 @@ export function attachWebSocketServer(
 
         }
       );
-
-      // =========================
-      // ROUTER
-      // =========================
 
       function handleMessage(
         message
@@ -445,10 +407,6 @@ export function attachWebSocketServer(
         }
       }
 
-      // =========================
-      // PING
-      // =========================
-
       function handlePing() {
 
         send(
@@ -462,10 +420,6 @@ export function attachWebSocketServer(
           true
         );
       }
-
-      // =========================
-      // JOIN
-      // =========================
 
       function joinRoom(
         message
@@ -523,8 +477,6 @@ export function attachWebSocketServer(
 
         try {
 
-          // ВАЖЛИВО:
-          // addPlayer() сам викликає match.addClient().
           room.addPlayer(
             player
           );
@@ -543,13 +495,6 @@ export function attachWebSocketServer(
           return;
         }
 
-        // Тут більше НЕ робимо:
-        //
-        // room.match = new Match(...)
-        // room.match.addClient(...)
-        //
-        // Room уже створив Match.
-
         room.emit(
           "chat",
           {
@@ -567,10 +512,6 @@ export function attachWebSocketServer(
           room
         );
       }
-
-      // =========================
-      // INPUT
-      // =========================
 
       function handleInput(
         message
@@ -604,10 +545,6 @@ export function attachWebSocketServer(
         );
       }
 
-      // =========================
-      // LEAVE
-      // =========================
-
       function leaveRoom() {
 
         const room =
@@ -628,10 +565,6 @@ export function attachWebSocketServer(
           room
         );
       }
-
-      // =========================
-      // CHAT
-      // =========================
 
       function chat(
         message
@@ -716,10 +649,6 @@ export function attachWebSocketServer(
           false
         );
       }
-
-      // =========================
-      // ROSTER
-      // =========================
 
       function broadcastRoster(
         room

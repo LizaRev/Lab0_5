@@ -1,5 +1,4 @@
 import { createLoop } from './loop.js';
-
 import { createInput } from './input.js';
 
 import { World } from './sim/world.js';
@@ -125,18 +124,9 @@ async function startGame() {
   network.netgraph.attach();
 
 
-<<<<<<< Updated upstream
-  /*
-   * M2 check:
-   * latency = 100 ms
-   * jitter = 0
-   * packet loss = 0
-   */
-=======
   const interpolationDelay =
     100;
 
->>>>>>> Stashed changes
 
   network.setLatency(100);
   network.setJitter(0);
@@ -163,8 +153,6 @@ async function startGame() {
       latestSnapshot =
         snapshot;
 
-<<<<<<< Updated upstream
-=======
 
       reconcilePredictedBullets(
         snapshot
@@ -178,7 +166,6 @@ async function startGame() {
         ) || [];
 
 
->>>>>>> Stashed changes
       console.log(
         "CLIENT SHIPS:",
         ships
@@ -290,18 +277,6 @@ async function startGame() {
     );
 
 
-<<<<<<< Updated upstream
-  /*
-   * Local World exists only
-   * because HUD/audio expect it.
-   *
-   * IMPORTANT:
-   * We do NOT use world.step()
-   * for client prediction.
-   */
-
-=======
->>>>>>> Stashed changes
   const world =
     new World();
 
@@ -464,13 +439,6 @@ async function startGame() {
   }
 
 
-<<<<<<< Updated upstream
-  /*
-   * Render ship.
-   */
-
-=======
->>>>>>> Stashed changes
   function createRenderShip(
     snapshotShip
   ) {
@@ -775,51 +743,6 @@ async function startGame() {
     null;
 
 
-<<<<<<< Updated upstream
-  /*
-   * =====================================================
-   * M2 — Prediction state
-   * =====================================================
-   */
-
-  const pendingInputs = [];
-
-
-  /*
-   * Local predicted state.
-   *
-   * This is deliberately kept separate from
-   * the authoritative snapshot.
-   */
-
-  let predictedShip = null;
-
-
-  /*
-   * M2 — Smooth correction
-   *
-   * Correction is applied gradually
-   * over approximately 100 ms.
-   */
-
-  let correctionX = 0;
-  let correctionY = 0;
-
-  const correctionDuration = 0.1;
-  let correctionTimeRemaining = 0;
-
-
-  /*
-   * Create a local prediction ship from
-   * an authoritative snapshot.
-   */
-
-  function createPredictedShip(
-    snapshotShip
-  ) {
-
-    if (!snapshotShip) {
-=======
   function lerp(
     a,
     b,
@@ -906,41 +829,10 @@ async function startGame() {
   ) {
 
     if (!from && !to) {
->>>>>>> Stashed changes
       return null;
     }
 
 
-<<<<<<< Updated upstream
-    return {
-
-      x:
-        snapshotShip.x,
-
-      y:
-        snapshotShip.y,
-
-      vx:
-        snapshotShip.vx ?? 0,
-
-      vy:
-        snapshotShip.vy ?? 0,
-
-      angle:
-        snapshotShip.angle ?? 0,
-
-      thrust:
-        snapshotShip.thrust ?? 0,
-
-      hp:
-        snapshotShip.hp ?? 0,
-
-      shield:
-        false,
-
-      alive:
-        true
-=======
     if (!from) {
 
       return to;
@@ -1008,116 +900,12 @@ async function startGame() {
 
       ttl:
         to.ttl ?? from.ttl
->>>>>>> Stashed changes
 
     };
 
   }
 
 
-<<<<<<< Updated upstream
-  /*
-   * Apply one shared Ship.update()-style
-   * simulation step to the local predicted ship.
-   *
-   * This mirrors shared/sim/ship.js.
-   */
-
-  function integratePredictedShip(
-    ship,
-    dt,
-    inputState
-  ) {
-
-    if (!ship) {
-      return;
-    }
-
-
-    const rotationSpeed = 3;
-    const thrustPower = 200;
-    const drag = 0.99;
-    const maxSpeed = 400;
-
-
-    if (inputState.left) {
-
-      ship.angle -=
-        rotationSpeed * dt;
-
-    }
-
-
-    if (inputState.right) {
-
-      ship.angle +=
-        rotationSpeed * dt;
-
-    }
-
-
-    ship.thrust =
-      inputState.thrust ? 1 : 0;
-
-
-    if (ship.thrust) {
-
-      const angle =
-        ship.angle - Math.PI / 2;
-
-      const directionX =
-        Math.cos(angle);
-
-      const directionY =
-        Math.sin(angle);
-
-
-      ship.vx +=
-        directionX *
-        thrustPower *
-        dt;
-
-      ship.vy +=
-        directionY *
-        thrustPower *
-        dt;
-
-    }
-
-
-    const dragFactor =
-      Math.pow(
-        drag,
-        dt * 60
-      );
-
-
-    ship.vx *=
-      dragFactor;
-
-    ship.vy *=
-      dragFactor;
-
-
-    const speed =
-      Math.hypot(
-        ship.vx,
-        ship.vy
-      );
-
-
-    if (
-      speed > maxSpeed
-    ) {
-
-      ship.vx =
-        (ship.vx / speed) *
-        maxSpeed;
-
-      ship.vy =
-        (ship.vy / speed) *
-        maxSpeed;
-=======
   function createInterpolatedRenderWorld() {
 
     if (
@@ -1125,86 +913,10 @@ async function startGame() {
     ) {
 
       return renderWorld;
->>>>>>> Stashed changes
 
     }
 
 
-<<<<<<< Updated upstream
-    ship.x +=
-      ship.vx * dt;
-
-    ship.y +=
-      ship.vy * dt;
-
-  }
-
-
-  /*
-   * Re-apply all inputs that the server
-   * has not confirmed yet.
-   */
-
-  function reconcile(
-    snapshot
-  ) {
-
-    const snapshotShip =
-      getSnapshotShip(
-        snapshot
-      );
-
-
-    if (!snapshotShip) {
-      return;
-    }
-
-
-    const lastProcessedSeq =
-      snapshot.lastProcessedSeq ?? -1;
-
-
-    /*
-     * Remove inputs already processed
-     * by the authoritative server.
-     */
-
-    while (
-      pendingInputs.length > 0 &&
-      pendingInputs[0].seq <=
-        lastProcessedSeq
-    ) {
-
-      pendingInputs.shift();
-
-    }
-
-
-    /*
-     * Start from the authoritative
-     * server state.
-     */
-
-    const authoritativeShip =
-      createPredictedShip(
-        snapshotShip
-      );
-
-
-    /*
-     * Re-apply inputs that were sent
-     * after the server's lastProcessedSeq.
-     */
-
-    for (
-      const pending of pendingInputs
-    ) {
-
-      integratePredictedShip(
-        authoritativeShip,
-        1 / 30,
-        pending.input
-=======
     const renderTime =
       performance.now() -
       interpolationDelay;
@@ -1255,39 +967,11 @@ async function startGame() {
 
       entityIds.add(
         String(entity.id)
->>>>>>> Stashed changes
       );
 
     }
 
 
-<<<<<<< Updated upstream
-    /*
-     * Calculate correction between
-     * current prediction and the
-     * newly reconstructed prediction.
-     */
-
-    if (predictedShip) {
-
-      const targetCorrectionX =
-        predictedShip.x -
-        authoritativeShip.x;
-
-      const targetCorrectionY =
-        predictedShip.y -
-        authoritativeShip.y;
-
-
-      correctionX =
-        targetCorrectionX;
-
-      correctionY =
-        targetCorrectionY;
-
-      correctionTimeRemaining =
-        correctionDuration;
-=======
     for (
       const entity of newerEntities
     ) {
@@ -1295,37 +979,10 @@ async function startGame() {
       entityIds.add(
         String(entity.id)
       );
->>>>>>> Stashed changes
 
     }
 
 
-<<<<<<< Updated upstream
-    /*
-     * Replace prediction with the
-     * server-authoritative state plus
-     * unconfirmed inputs.
-     */
-
-    predictedShip =
-      authoritativeShip;
-
-
-    /*
-     * Correction magnitude.
-     */
-
-    const correctionMagnitude =
-      Math.hypot(
-        correctionX,
-        correctionY
-      );
-
-
-    console.log(
-      "M2 correction:",
-      correctionMagnitude
-=======
     const interpolatedEntities =
       [];
 
@@ -1443,18 +1100,10 @@ async function startGame() {
         world:
           interpolatedWorld
       }
->>>>>>> Stashed changes
     );
 
   }
 
-<<<<<<< Updated upstream
-
-  /*
-   * Apply authoritative snapshot.
-   */
-=======
->>>>>>> Stashed changes
 
   function applySnapshot(
     snapshot
@@ -1472,60 +1121,10 @@ async function startGame() {
       );
 
 
-    /*
-     * M2:
-     * Reconcile the predicted ship
-     * against the authoritative snapshot.
-     */
-
-    reconcile(
-      snapshot
-    );
-
-
-    /*
-     * Render predicted local ship
-     * instead of waiting for the next
-     * server snapshot.
-     */
-
-    if (predictedShip) {
-
-      renderShip = {
-
-        x:
-          predictedShip.x +
-          correctionX,
-
-        y:
-          predictedShip.y +
-          correctionY,
-
-        angle:
-          predictedShip.angle,
-
-        thrust:
-          predictedShip.thrust,
-
-        hp:
-          predictedShip.hp,
-
-        shield:
-          false,
-
-        alive:
-          true
-
-      };
-
-    } else {
-
-      renderShip =
-        createRenderShip(
-          snapshotShip
-        );
-
-    }
+    renderShip =
+      createRenderShip(
+        snapshotShip
+      );
 
 
     world.score =
@@ -1548,13 +1147,6 @@ async function startGame() {
   };
 
 
-<<<<<<< Updated upstream
-  /*
-   * Render.
-   */
-
-=======
->>>>>>> Stashed changes
   function render() {
 
     if (latestSnapshot) {
@@ -1569,96 +1161,11 @@ async function startGame() {
     }
 
 
-<<<<<<< Updated upstream
-    /*
-     * Between snapshots, smoothly reduce
-     * the correction over approximately
-     * 100 ms.
-     */
-
-    if (
-      correctionTimeRemaining > 0
-    ) {
-
-      const correctionStep =
-        Math.min(
-          1 / 60,
-          correctionTimeRemaining
-        );
-
-
-      const factor =
-        correctionStep /
-        correctionTimeRemaining;
-
-
-      correctionX *=
-        1 - factor;
-
-      correctionY *=
-        1 - factor;
-
-
-      correctionTimeRemaining -=
-        correctionStep;
-
-
-      if (
-        correctionTimeRemaining <= 0
-      ) {
-
-        correctionTimeRemaining = 0;
-
-        correctionX = 0;
-        correctionY = 0;
-
-      }
-
-    }
-
-
-    /*
-     * Between snapshots, continue rendering
-     * the current predicted state.
-     */
-
-    if (predictedShip) {
-
-      renderShip = {
-
-        x:
-          predictedShip.x +
-          correctionX,
-
-        y:
-          predictedShip.y +
-          correctionY,
-
-        angle:
-          predictedShip.angle,
-
-        thrust:
-          predictedShip.thrust,
-
-        hp:
-          predictedShip.hp,
-
-        shield:
-          false,
-
-        alive:
-          true
-
-      };
-
-    }
-=======
     updatePredictedBullets();
 
     addPredictedBullets(
       renderWorld
     );
->>>>>>> Stashed changes
 
 
     const stats =
@@ -1697,14 +1204,6 @@ async function startGame() {
   }
 
 
-<<<<<<< Updated upstream
-  /*
-   * Send input to server
-   * and perform local prediction.
-   */
-
-=======
->>>>>>> Stashed changes
   let inputAccumulator =
     0;
 
@@ -1718,16 +1217,6 @@ async function startGame() {
 
       simulate(dt) {
 
-<<<<<<< Updated upstream
-        /*
-         * Local prediction runs every
-         * client simulation step.
-         */
-
-        if (predictedShip) {
-
-          const currentInput = {
-=======
         inputAccumulator +=
           dt;
 
@@ -1775,7 +1264,6 @@ async function startGame() {
 
 
           const inputState = {
->>>>>>> Stashed changes
 
             left:
               input.isDown(
@@ -1795,15 +1283,6 @@ async function startGame() {
             fire:
               currentFire,
 
-<<<<<<< Updated upstream
-          };
-
-
-          integratePredictedShip(
-            predictedShip,
-            dt,
-            currentInput
-=======
             shotId
 
           };
@@ -1815,76 +1294,11 @@ async function startGame() {
 
           network.sendInput(
             inputState
->>>>>>> Stashed changes
           );
 
         }
 
 
-<<<<<<< Updated upstream
-        inputAccumulator += dt;
-
-
-        /*
-         * Server simulation is 30 Hz.
-         * Send input approximately
-         * 30 times per second.
-         */
-
-        if (
-          inputAccumulator >=
-          1 / 30
-        ) {
-
-          inputAccumulator -=
-            1 / 30;
-
-
-          const inputState = {
-
-            left:
-              input.isDown(
-                "ArrowLeft"
-              ),
-
-            right:
-              input.isDown(
-                "ArrowRight"
-              ),
-
-            thrust:
-              input.isDown(
-                "ArrowUp"
-              ),
-
-            fire:
-              input.isDown(
-                "Space"
-              )
-
-          };
-
-
-          const seq =
-            network.sendInput(
-              inputState
-            );
-
-
-          pendingInputs.push({
-
-            seq,
-
-            input:
-              inputState
-
-          });
-
-        }
-
-
-=======
->>>>>>> Stashed changes
         input.endFrame();
 
       },

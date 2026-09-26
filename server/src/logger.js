@@ -1,4 +1,3 @@
-// server/src/logger.js
 import fs from "node:fs";
 import path from "node:path";
 import { Transform } from "node:stream";
@@ -15,7 +14,6 @@ export function setupRoomLogging(room) {
   
   const writeStream = fs.createWriteStream(logPath, { flags: "a" });
 
-  // Transform stream: превращает объект события в строку NDJSON
   const serializer = new Transform({
     objectMode: true,
     transform(chunk, encoding, callback) {
@@ -27,8 +25,6 @@ export function setupRoomLogging(room) {
     },
   });
 
-  // Берем события из EventEmitter комнаты и пускаем через pipeline
-  // (Здесь можно использовать Readable.from или просто слушать эмиттер)
   const eventsStream = new Transform({
     objectMode: true,
     transform(event, encoding, callback) {
@@ -36,14 +32,12 @@ export function setupRoomLogging(room) {
     }
   });
 
-  // Подписываемся на события комнаты и отправляем в поток
   const onEvent = (eventData) => {
     eventsStream.write(eventData);
   };
 
   room.on("log-event", onEvent);
 
-  // Когда комната удаляется, закрываем стримы
   room.once("empty", () => {
     room.off("log-event", onEvent);
     eventsStream.end();

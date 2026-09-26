@@ -9,7 +9,6 @@ import {
   PROTOCOL_VERSION,
 } from "../../shared/protocol/messages.js";
 
-
 export class Match {
 
   constructor(roomId) {
@@ -22,9 +21,6 @@ export class Match {
 
     this.inputs = new Map();
 
-    /*
-     * playerId -> Ship
-     */
     this.ships = new Map();
 
     this.tickRate = 30;
@@ -114,11 +110,6 @@ export class Match {
     );
 
 
-    /*
-     * Check whether this player
-     * already has a ship.
-     */
-
     let ship =
       this.ships.get(
         id
@@ -127,20 +118,9 @@ export class Match {
 
     if (!ship) {
 
-      /*
-       * Try to find a ship that
-       * isn't assigned to another player.
-       */
-
       ship =
         this.findFreeShip();
 
-
-      /*
-       * If every existing ship is
-       * already assigned, create
-       * a new one.
-       */
 
       if (!ship) {
 
@@ -187,24 +167,12 @@ export class Match {
       }
 
 
-      /*
-       * IMPORTANT:
-       *
-       * The map is:
-       *
-       * playerId -> ship
-       */
-
       this.ships.set(
         id,
         ship
       );
     }
 
-
-    /*
-     * Reset input state for this player.
-     */
 
     this.inputs.set(
       id,
@@ -216,12 +184,6 @@ export class Match {
           right: false,
           thrust: false,
           fire: false,
-
-          /*
-           * M3:
-           * Client-generated identifier
-           * for the current shot.
-           */
           shotId: null,
         },
 
@@ -230,16 +192,6 @@ export class Match {
     );
   }
 
-
-  /*
-   * Find a ship which is not currently
-   * assigned to any player.
-   *
-   * IMPORTANT:
-   *
-   * this.ships keys are playerIds,
-   * so we must check its VALUES.
-   */
 
   findFreeShip() {
 
@@ -401,12 +353,6 @@ export class Match {
           input?.fire
         ),
 
-      /*
-       * M3:
-       *
-       * Preserve the client-generated
-       * shot identifier.
-       */
       shotId:
         input?.shotId ?? null,
     };
@@ -504,34 +450,13 @@ export class Match {
       this.tickMs / 1000;
 
 
-    /*
-     * playerId -> {
-     *   ship,
-     *   input,
-     *   state
-     * }
-     */
-
     const playerInputs =
       new Map();
 
 
-    /*
-     * Ship -> input
-     *
-     * This is what allows World.step()
-     * to use different controls for
-     * different ships.
-     */
-
     const shipInputs =
       new Map();
 
-
-    /*
-     * Build input for every connected
-     * player independently.
-     */
 
     for (
       const [playerId, state]
@@ -548,21 +473,11 @@ export class Match {
       }
 
 
-      /*
-       * Get the ship belonging
-       * specifically to this player.
-       */
-
       let ship =
         this.ships.get(
           playerId
         );
 
-
-      /*
-       * If the player's ship died,
-       * assign a free ship.
-       */
 
       if (
         !ship ||
@@ -595,12 +510,6 @@ export class Match {
       const current =
         state.input;
 
-
-      /*
-       * Convert network input into
-       * the interface expected by
-       * the simulation.
-       */
 
       const input = {
 
@@ -659,37 +568,11 @@ export class Match {
       );
 
 
-      /*
-       * IMPORTANT:
-       *
-       * This creates the exact relationship:
-       *
-       * ship A -> input A
-       * ship B -> input B
-       */
-
       shipInputs.set(
         ship,
         input
       );
 
-
-      /*
-       * Fire only on the transition
-       * false -> true.
-       *
-       * M3:
-       *
-       * The client sends shotId together
-       * with the fire transition.
-       *
-       * Ship.fire() creates the actual
-       * authoritative server bullet.
-       *
-       * We then assign the same id to
-       * that bullet so the client can
-       * replace its predicted bullet.
-       */
 
       if (
         current.fire &&
@@ -756,17 +639,6 @@ export class Match {
     }
 
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT use the first player's
-     * input as the global input.
-     *
-     * That was causing one player's
-     * controls to leak into another
-     * ship.
-     */
-
     this.world.step(
       dt,
       {
@@ -776,18 +648,9 @@ export class Match {
         height:
           this.world.height,
 
-        /*
-         * No global player input.
-         */
-
         input: {
           isDown: () => false,
         },
-
-        /*
-         * Every ship gets only
-         * its own player's input.
-         */
 
         inputForEntity:
           (entity) => {
@@ -813,10 +676,6 @@ export class Match {
       }
     );
 
-
-    /*
-     * Wrap every player's ship.
-     */
 
     for (
       const [playerId]
@@ -950,26 +809,11 @@ export class Match {
       playerId:
         playerId,
 
-      /*
-       * This is the ship belonging
-       * specifically to this player.
-       */
-
       playerShipId:
         playerShip?.id ?? null,
 
       lastProcessedSeq:
         inputState?.seq ?? -1,
-
-      /*
-       * IMPORTANT:
-       *
-       * serializeWorld() contains
-       * ALL alive ships and bullets.
-       *
-       * Therefore both clients receive
-       * all remote entities.
-       */
 
       world:
         this.serializeWorld(),
@@ -1077,4 +921,3 @@ export class Match {
     }
   }
 }
-
