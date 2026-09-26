@@ -72,9 +72,19 @@ export class World extends EventTarget {
       this.#entities.values()
     ) {
       if (entity.alive) {
+
+        const entityInputs =
+          typeof inputs.inputForEntity === 'function'
+            ? {
+                ...inputs,
+                input:
+                  inputs.inputForEntity(entity),
+              }
+            : inputs;
+
         entity.update(
           dt,
-          inputs
+          entityInputs
         );
       }
     }
@@ -437,4 +447,3 @@ export class World extends EventTarget {
     );
   }
 }
-

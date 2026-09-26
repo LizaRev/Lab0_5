@@ -1,4 +1,4 @@
-import { Entity } from './entity.js'; //імпорт класу
+import { Entity } from './entity.js'; 
 
 export class Bullet extends Entity {
 

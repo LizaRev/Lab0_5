@@ -62,11 +62,6 @@ async function startGame() {
     joinedData.players || [];
 
 
-  /*
-   * M2:
-   * Identify the local player.
-   */
-
   const localPlayer =
     initialPlayers.find(
       (player) =>
@@ -103,20 +98,11 @@ async function startGame() {
   );
 
 
-  /*
-   * Network
-   */
-
   const network =
     new ClientNetwork(
       lobby.connection
     );
 
-
-  /*
-   * Lobby and ClientNetwork
-   * use the same WebSocket.
-   */
 
   const originalOnMessage =
     lobby.connection.onmessage;
@@ -136,32 +122,39 @@ async function startGame() {
     };
 
 
-  /*
-   * Network graph
-   */
-
   network.netgraph.attach();
 
 
+<<<<<<< Updated upstream
   /*
    * M2 check:
    * latency = 100 ms
    * jitter = 0
    * packet loss = 0
    */
+=======
+  const interpolationDelay =
+    100;
+
+>>>>>>> Stashed changes
 
   network.setLatency(100);
   network.setJitter(0);
   network.setPacketLoss(0);
 
 
-  /*
-   * Latest authoritative
-   * server snapshot.
-   */
-
   let latestSnapshot =
     null;
+
+
+  let shotSequence =
+    0;
+
+  let previousFire =
+    false;
+
+  const predictedBullets =
+    new Map();
 
 
   network.onSnapshot(
@@ -170,18 +163,36 @@ async function startGame() {
       latestSnapshot =
         snapshot;
 
-      console.log(
-        "Snapshot:",
+<<<<<<< Updated upstream
+=======
+
+      reconcilePredictedBullets(
         snapshot
+      );
+
+
+      const ships =
+        snapshot?.world?.entities?.filter(
+          (entity) =>
+            entity.kind === "ship"
+        ) || [];
+
+
+>>>>>>> Stashed changes
+      console.log(
+        "CLIENT SHIPS:",
+        ships
+      );
+
+
+      console.log(
+        "Player ship ID:",
+        snapshot?.playerShipId
       );
 
     }
   );
 
-
-  /*
-   * Canvas
-   */
 
   const canvas =
     createCanvas();
@@ -194,10 +205,6 @@ async function startGame() {
     0
   );
 
-
-  /*
-   * Audio
-   */
 
   const audio =
     createAudio();
@@ -213,10 +220,6 @@ async function startGame() {
     { once: true }
   );
 
-
-  /*
-   * Assets
-   */
 
   const manifestUrl =
     new URL(
@@ -281,16 +284,13 @@ async function startGame() {
   );
 
 
-  /*
-   * Input
-   */
-
   const input =
     createInput(
       window
     );
 
 
+<<<<<<< Updated upstream
   /*
    * Local World exists only
    * because HUD/audio expect it.
@@ -300,6 +300,8 @@ async function startGame() {
    * for client prediction.
    */
 
+=======
+>>>>>>> Stashed changes
   const world =
     new World();
 
@@ -316,12 +318,6 @@ async function startGame() {
       initialPlayers
     );
 
-
-  /*
-   * Convert server snapshot
-   * into the format expected
-   * by drawScene().
-   */
 
   function createRenderWorld(
     snapshot
@@ -422,11 +418,6 @@ async function startGame() {
   }
 
 
-  /*
-   * Find the ship from
-   * the latest server snapshot.
-   */
-
   function getSnapshotShip(
     snapshot
   ) {
@@ -434,6 +425,33 @@ async function startGame() {
     const entities =
       snapshot?.world?.entities ||
       [];
+
+
+    const playerShipId =
+      snapshot?.playerShipId;
+
+
+    if (
+      playerShipId !== null &&
+      playerShipId !== undefined
+    ) {
+
+      const playerShip =
+        entities.find(
+          (entity) =>
+            entity.kind === "ship" &&
+            String(entity.id) ===
+              String(playerShipId)
+        );
+
+
+      if (playerShip) {
+
+        return playerShip;
+
+      }
+
+    }
 
 
     return (
@@ -446,10 +464,13 @@ async function startGame() {
   }
 
 
+<<<<<<< Updated upstream
   /*
    * Render ship.
    */
 
+=======
+>>>>>>> Stashed changes
   function createRenderShip(
     snapshotShip
   ) {
@@ -477,12 +498,269 @@ async function startGame() {
         snapshotShip.hp ?? 0,
 
       shield:
-        false,
+        snapshotShip.shield ?? false,
 
       alive:
-        true
+        snapshotShip.alive ?? true
 
     };
+
+  }
+
+
+  function createPredictedBullet(
+    snapshotShip,
+    shotId
+  ) {
+
+    if (!snapshotShip) {
+      return;
+    }
+
+
+    const angle =
+      snapshotShip.angle ?? 0;
+
+
+    const directionX =
+      Math.cos(
+        angle - Math.PI / 2
+      );
+
+    const directionY =
+      Math.sin(
+        angle - Math.PI / 2
+      );
+
+
+    const radius =
+      snapshotShip.radius ?? 20;
+
+
+    const bulletX =
+      snapshotShip.x +
+      directionX *
+        (radius + 4);
+
+
+    const bulletY =
+      snapshotShip.y +
+      directionY *
+        (radius + 4);
+
+
+    const bulletSpeed =
+      500;
+
+
+    const bulletVx =
+      (snapshotShip.vx ?? 0) +
+      directionX *
+        bulletSpeed;
+
+
+    const bulletVy =
+      (snapshotShip.vy ?? 0) +
+      directionY *
+        bulletSpeed;
+
+
+    predictedBullets.set(
+      String(shotId),
+      {
+
+        id:
+          String(shotId),
+
+        kind:
+          "bullet",
+
+        x:
+          bulletX,
+
+        y:
+          bulletY,
+
+        vx:
+          bulletVx,
+
+        vy:
+          bulletVy,
+
+        radius:
+          4,
+
+        ttl:
+          2,
+
+        alive:
+          true,
+
+        predicted:
+          true,
+
+        lastUpdate:
+          performance.now()
+
+      }
+    );
+
+  }
+
+
+  function updatePredictedBullets() {
+
+    const now =
+      performance.now();
+
+
+    for (
+      const [shotId, bullet]
+      of predictedBullets
+    ) {
+
+      const dt =
+        Math.min(
+          0.05,
+          Math.max(
+            0,
+            (now - bullet.lastUpdate) /
+              1000
+          )
+        );
+
+
+      bullet.lastUpdate =
+        now;
+
+
+      bullet.x +=
+        bullet.vx * dt;
+
+      bullet.y +=
+        bullet.vy * dt;
+
+
+      bullet.ttl -=
+        dt;
+
+
+      if (
+        bullet.ttl <= 0
+      ) {
+
+        predictedBullets.delete(
+          shotId
+        );
+
+      }
+
+    }
+
+  }
+
+
+  function reconcilePredictedBullets(
+    snapshot
+  ) {
+
+    const entities =
+      snapshot?.world?.entities ||
+      [];
+
+
+    const serverBulletIds =
+      new Set(
+        entities
+          .filter(
+            (entity) =>
+              entity.kind ===
+              "bullet"
+          )
+          .map(
+            (entity) =>
+              String(entity.id)
+          )
+      );
+
+
+    for (
+      const shotId
+      of predictedBullets.keys()
+    ) {
+
+      if (
+        serverBulletIds.has(
+          String(shotId)
+        )
+      ) {
+
+        predictedBullets.delete(
+          shotId
+        );
+
+      }
+
+    }
+
+  }
+
+
+  function addPredictedBullets(
+    worldToRender
+  ) {
+
+    for (
+      const bullet
+      of predictedBullets.values()
+    ) {
+
+      worldToRender.entities.push({
+
+        id:
+          bullet.id,
+
+        kind:
+          "bullet",
+
+        pos: {
+
+          x:
+            bullet.x,
+
+          y:
+            bullet.y
+
+        },
+
+        vel: {
+
+          x:
+            bullet.vx,
+
+          y:
+            bullet.vy
+
+        },
+
+        angle:
+          0,
+
+        radius:
+          bullet.radius,
+
+        ttl:
+          bullet.ttl,
+
+        alive:
+          true,
+
+        predicted:
+          true
+
+      });
+
+    }
 
   }
 
@@ -497,6 +775,7 @@ async function startGame() {
     null;
 
 
+<<<<<<< Updated upstream
   /*
    * =====================================================
    * M2 — Prediction state
@@ -540,10 +819,99 @@ async function startGame() {
   ) {
 
     if (!snapshotShip) {
+=======
+  function lerp(
+    a,
+    b,
+    t
+  ) {
+
+    return (
+      a +
+      (b - a) * t
+    );
+
+  }
+
+
+  function lerpAngle(
+    a,
+    b,
+    t
+  ) {
+
+    const twoPi =
+      Math.PI * 2;
+
+
+    let difference =
+      b - a;
+
+
+    while (
+      difference >
+      Math.PI
+    ) {
+
+      difference -=
+        twoPi;
+
+    }
+
+
+    while (
+      difference <
+      -Math.PI
+    ) {
+
+      difference +=
+        twoPi;
+
+    }
+
+
+    return (
+      a +
+      difference * t
+    );
+
+  }
+
+
+  function findEntity(
+    snapshot,
+    entityId
+  ) {
+
+    const entities =
+      snapshot?.world?.entities ||
+      [];
+
+
+    return (
+      entities.find(
+        (entity) =>
+          String(entity.id) ===
+          String(entityId)
+      ) || null
+    );
+
+  }
+
+
+  function interpolateEntity(
+    from,
+    to,
+    alpha
+  ) {
+
+    if (!from && !to) {
+>>>>>>> Stashed changes
       return null;
     }
 
 
+<<<<<<< Updated upstream
     return {
 
       x:
@@ -572,12 +940,82 @@ async function startGame() {
 
       alive:
         true
+=======
+    if (!from) {
+
+      return to;
+
+    }
+
+
+    if (!to) {
+
+      return from;
+
+    }
+
+
+    return {
+
+      ...to,
+
+      x:
+        lerp(
+          from.x ?? 0,
+          to.x ?? 0,
+          alpha
+        ),
+
+      y:
+        lerp(
+          from.y ?? 0,
+          to.y ?? 0,
+          alpha
+        ),
+
+      angle:
+        lerpAngle(
+          from.angle ?? 0,
+          to.angle ?? 0,
+          alpha
+        ),
+
+      vx:
+        lerp(
+          from.vx ?? 0,
+          to.vx ?? 0,
+          alpha
+        ),
+
+      vy:
+        lerp(
+          from.vy ?? 0,
+          to.vy ?? 0,
+          alpha
+        ),
+
+      radius:
+        to.radius ?? from.radius ?? 0,
+
+      hp:
+        to.hp ?? from.hp,
+
+      thrust:
+        to.thrust ?? from.thrust,
+
+      type:
+        to.type ?? from.type,
+
+      ttl:
+        to.ttl ?? from.ttl
+>>>>>>> Stashed changes
 
     };
 
   }
 
 
+<<<<<<< Updated upstream
   /*
    * Apply one shared Ship.update()-style
    * simulation step to the local predicted ship.
@@ -679,10 +1117,20 @@ async function startGame() {
       ship.vy =
         (ship.vy / speed) *
         maxSpeed;
+=======
+  function createInterpolatedRenderWorld() {
+
+    if (
+      !latestSnapshot
+    ) {
+
+      return renderWorld;
+>>>>>>> Stashed changes
 
     }
 
 
+<<<<<<< Updated upstream
     ship.x +=
       ship.vx * dt;
 
@@ -756,11 +1204,64 @@ async function startGame() {
         authoritativeShip,
         1 / 30,
         pending.input
+=======
+    const renderTime =
+      performance.now() -
+      interpolationDelay;
+
+
+    const pair =
+      network.snapshotClient.getInterpolationPair(
+        renderTime
+      );
+
+
+    if (!pair) {
+
+      return createRenderWorld(
+        latestSnapshot
       );
 
     }
 
 
+    const older =
+      pair.previous;
+
+    const newer =
+      pair.next;
+
+    const alpha =
+      pair.alpha;
+
+
+    const olderEntities =
+      older?.world?.entities ||
+      [];
+
+
+    const newerEntities =
+      newer?.world?.entities ||
+      [];
+
+
+    const entityIds =
+      new Set();
+
+
+    for (
+      const entity of olderEntities
+    ) {
+
+      entityIds.add(
+        String(entity.id)
+>>>>>>> Stashed changes
+      );
+
+    }
+
+
+<<<<<<< Updated upstream
     /*
      * Calculate correction between
      * current prediction and the
@@ -786,10 +1287,20 @@ async function startGame() {
 
       correctionTimeRemaining =
         correctionDuration;
+=======
+    for (
+      const entity of newerEntities
+    ) {
+
+      entityIds.add(
+        String(entity.id)
+      );
+>>>>>>> Stashed changes
 
     }
 
 
+<<<<<<< Updated upstream
     /*
      * Replace prediction with the
      * server-authoritative state plus
@@ -814,14 +1325,136 @@ async function startGame() {
     console.log(
       "M2 correction:",
       correctionMagnitude
+=======
+    const interpolatedEntities =
+      [];
+
+
+    for (
+      const entityId of entityIds
+    ) {
+
+      const from =
+        findEntity(
+          older,
+          entityId
+        );
+
+
+      const to =
+        findEntity(
+          newer,
+          entityId
+        );
+
+
+      const entity =
+        interpolateEntity(
+          from,
+          to,
+          alpha
+        );
+
+
+      if (!entity) {
+        continue;
+      }
+
+
+      interpolatedEntities.push(
+        entity
+      );
+
+    }
+
+
+    const localShip =
+      getSnapshotShip(
+        latestSnapshot
+      );
+
+
+    if (localShip) {
+
+      const localShipId =
+        String(
+          localShip.id
+        );
+
+
+      const localIndex =
+        interpolatedEntities.findIndex(
+          (entity) =>
+            String(entity.id) ===
+            localShipId
+        );
+
+
+      if (
+        localIndex >= 0
+      ) {
+
+        interpolatedEntities[
+          localIndex
+        ] = localShip;
+
+      } else {
+
+        interpolatedEntities.push(
+          localShip
+        );
+
+      }
+
+    }
+
+
+    const interpolatedWorld = {
+
+      width:
+        newer?.world?.width ??
+        canvas.width,
+
+      height:
+        newer?.world?.height ??
+        canvas.height,
+
+      score:
+        newer?.world?.score ??
+        0,
+
+      entities:
+        interpolatedEntities
+
+    };
+
+
+    interpolatedWorld[
+      Symbol.iterator
+    ] = function* () {
+
+      yield* this.entities;
+
+    };
+
+
+    return createRenderWorld(
+      {
+        world:
+          interpolatedWorld
+      }
+>>>>>>> Stashed changes
     );
 
   }
 
+<<<<<<< Updated upstream
 
   /*
    * Apply authoritative snapshot.
    */
+=======
+>>>>>>> Stashed changes
 
   function applySnapshot(
     snapshot
@@ -901,25 +1534,27 @@ async function startGame() {
   }
 
 
-  /*
-   * Loop statistics.
-   */
-
   let loopStats = {
 
-    stepsPerSecond: 0,
+    stepsPerSecond:
+      0,
 
-    framesPerSecond: 0,
+    framesPerSecond:
+      0,
 
-    lastFrameDuration: 0
+    lastFrameDuration:
+      0
 
   };
 
 
+<<<<<<< Updated upstream
   /*
    * Render.
    */
 
+=======
+>>>>>>> Stashed changes
   function render() {
 
     if (latestSnapshot) {
@@ -928,9 +1563,13 @@ async function startGame() {
         latestSnapshot
       );
 
+      renderWorld =
+        createInterpolatedRenderWorld();
+
     }
 
 
+<<<<<<< Updated upstream
     /*
      * Between snapshots, smoothly reduce
      * the correction over approximately
@@ -1013,6 +1652,13 @@ async function startGame() {
       };
 
     }
+=======
+    updatePredictedBullets();
+
+    addPredictedBullets(
+      renderWorld
+    );
+>>>>>>> Stashed changes
 
 
     const stats =
@@ -1051,11 +1697,14 @@ async function startGame() {
   }
 
 
+<<<<<<< Updated upstream
   /*
    * Send input to server
    * and perform local prediction.
    */
 
+=======
+>>>>>>> Stashed changes
   let inputAccumulator =
     0;
 
@@ -1069,6 +1718,7 @@ async function startGame() {
 
       simulate(dt) {
 
+<<<<<<< Updated upstream
         /*
          * Local prediction runs every
          * client simulation step.
@@ -1077,6 +1727,55 @@ async function startGame() {
         if (predictedShip) {
 
           const currentInput = {
+=======
+        inputAccumulator +=
+          dt;
+
+
+        if (
+          inputAccumulator >=
+          1 / 30
+        ) {
+
+          inputAccumulator -=
+            1 / 30;
+
+
+          const currentFire =
+            input.isDown(
+              "Space"
+            );
+
+
+          let shotId =
+            null;
+
+
+          if (
+            currentFire &&
+            !previousFire
+          ) {
+
+            shotId =
+              `${localPlayerId ?? "player"}-${shotSequence++}`;
+
+
+            const localShip =
+              getSnapshotShip(
+                latestSnapshot
+              );
+
+
+            createPredictedBullet(
+              localShip,
+              shotId
+            );
+
+          }
+
+
+          const inputState = {
+>>>>>>> Stashed changes
 
             left:
               input.isDown(
@@ -1094,10 +1793,9 @@ async function startGame() {
               ),
 
             fire:
-              input.isDown(
-                "Space"
-              )
+              currentFire,
 
+<<<<<<< Updated upstream
           };
 
 
@@ -1105,11 +1803,25 @@ async function startGame() {
             predictedShip,
             dt,
             currentInput
+=======
+            shotId
+
+          };
+
+
+          previousFire =
+            currentFire;
+
+
+          network.sendInput(
+            inputState
+>>>>>>> Stashed changes
           );
 
         }
 
 
+<<<<<<< Updated upstream
         inputAccumulator += dt;
 
 
@@ -1171,6 +1883,8 @@ async function startGame() {
         }
 
 
+=======
+>>>>>>> Stashed changes
         input.endFrame();
 
       },
@@ -1180,10 +1894,6 @@ async function startGame() {
 
     });
 
-
-  /*
-   * Start client loop.
-   */
 
   loop.start();
 

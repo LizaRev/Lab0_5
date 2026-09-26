@@ -104,8 +104,6 @@ export function drawLoadingError(
   );
 
 
-  // Заголовок
-
   ctx.fillStyle = "#ffffff";
 
   ctx.font = "32px Arial";
@@ -119,7 +117,6 @@ export function drawLoadingError(
   );
 
 
-  // Опис помилки
 
   ctx.fillStyle = "#cfc5ff";
 
@@ -132,7 +129,6 @@ export function drawLoadingError(
   );
 
 
-  // Назва помилки
 
   ctx.fillStyle = "#ff9f9f";
 
@@ -145,7 +141,6 @@ export function drawLoadingError(
   );
 
 
-  // Кнопка Retry
 
   const buttonWidth = 160;
 
@@ -179,7 +174,6 @@ export function drawLoadingError(
   );
 
 
-  // Обробка натискання
 
   function handleClick(event) {
 

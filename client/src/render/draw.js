@@ -15,6 +15,17 @@ export function drawScene(
   drawGrid(ctx, width, height);
 
   for (const entity of world) {
+    if (
+      entity.kind === 'ship' &&
+      entity.id !== ship?.id
+    ) {
+      drawShip(
+        ctx,
+        entity,
+        assets.ship
+      );
+    }
+
     if (entity.kind === 'asteroid') {
       drawAsteroid(
         ctx,
@@ -46,6 +57,7 @@ export function drawScene(
       );
     }
   }
+
 
   drawShip(
     ctx,
@@ -97,15 +109,31 @@ function drawShip(ctx, ship, image) {
     return;
   }
 
+
+  const x =
+    ship.x ??
+    ship.pos?.x;
+
+  const y =
+    ship.y ??
+    ship.pos?.y;
+
+  if (
+    x === undefined ||
+    y === undefined
+  ) {
+    return;
+  }
+
   ctx.save();
 
   ctx.translate(
-    ship.x,
-    ship.y
+    x,
+    y
   );
 
   ctx.rotate(
-    ship.angle
+    ship.angle ?? 0
   );
 
   const sourceX = 0;
@@ -165,13 +193,17 @@ function drawAsteroid(ctx, asteroid, image) {
     return;
   }
 
-  const size = asteroid.radius * 2.5;
+  const size =
+    asteroid.radius * 2.5;
 
   const sourceX = 0;
   const sourceY = 0;
 
-  const sourceWidth = image.width;
-  const sourceHeight = image.height;
+  const sourceWidth =
+    image.width;
+
+  const sourceHeight =
+    image.height;
 
   ctx.drawImage(
     image,
@@ -188,9 +220,11 @@ function drawAsteroid(ctx, asteroid, image) {
 
 
 function drawExplosionParticle(ctx, particle) {
-  const alpha = particle.ttl / 0.5;
+  const alpha =
+    particle.ttl / 0.5;
 
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha =
+    alpha;
 
   ctx.beginPath();
 
@@ -202,10 +236,13 @@ function drawExplosionParticle(ctx, particle) {
     Math.PI * 2
   );
 
-  ctx.fillStyle = 'orange';
+  ctx.fillStyle =
+    'orange';
+
   ctx.fill();
 
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha =
+    1;
 }
 
 
@@ -214,13 +251,17 @@ function drawPickup(ctx, pickup, image) {
     return;
   }
 
-  const size = pickup.radius * 5;
+  const size =
+    pickup.radius * 5;
 
   const sourceX = 0;
   const sourceY = 0;
 
-  const sourceWidth = image.width;
-  const sourceHeight = image.height;
+  const sourceWidth =
+    image.width;
+
+  const sourceHeight =
+    image.height;
 
   ctx.drawImage(
     image,
@@ -234,3 +275,4 @@ function drawPickup(ctx, pickup, image) {
     size
   );
 }
+

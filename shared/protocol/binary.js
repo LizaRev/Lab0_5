@@ -381,7 +381,8 @@ export function decodeInput(buffer) {
  *
  * u8   codec version
  * u8   message type
- * u16  roomId byte length + UTF-8 bytes
+ * string roomId
+ * string playerShipId
  * i32  lastProcessedSeq
  * f32  world width
  * f32  world height
@@ -434,6 +435,10 @@ export function encodeSnapshot(message) {
 
   writer.string(
     message.roomId
+  );
+
+  writer.string(
+    message.playerShipId ?? ""
   );
 
   writer.i32(
@@ -551,6 +556,9 @@ export function decodeSnapshot(buffer) {
   const roomId =
     reader.string();
 
+  const playerShipId =
+    reader.string();
+
   const lastProcessedSeq =
     reader.i32();
 
@@ -646,6 +654,8 @@ export function decodeSnapshot(buffer) {
     version: 1,
     type: "snapshot",
     roomId,
+    playerShipId:
+      playerShipId || null,
     lastProcessedSeq,
     world: {
       width,

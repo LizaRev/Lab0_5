@@ -10,9 +10,6 @@ export function initHud(
   initialPlayers = []
 ) {
 
-  // =========================
-  // ЛІВА ПАНЕЛЬ — GAME HUD
-  // =========================
 
   const hud = document.createElement("div");
 
@@ -110,10 +107,6 @@ export function initHud(
   );
 
 
-  // =========================
-  // ПРАВА ПАНЕЛЬ
-  // =========================
-
   const sidebar =
     document.createElement("div");
 
@@ -150,8 +143,6 @@ export function initHud(
     "12px";
 
 
-  // Напівпрозорий фон,
-  // щоб гра залишалась видимою
 
   sidebar.style.background =
     "rgba(10, 8, 30, 0.58)";
@@ -183,11 +174,6 @@ export function initHud(
 
   sidebar.style.zIndex =
     "9999";
-
-
-  // =========================
-  // PLAYERS TITLE
-  // =========================
 
   const playersTitle =
     document.createElement("div");
@@ -222,10 +208,6 @@ export function initHud(
   );
 
 
-  // =========================
-  // PLAYERS CONTAINER
-  // =========================
-
   const playersContainer =
     document.createElement("div");
 
@@ -259,10 +241,6 @@ export function initHud(
   );
 
 
-  // =========================
-  // SEPARATOR
-  // =========================
-
   const separator =
     document.createElement("div");
 
@@ -283,10 +261,6 @@ export function initHud(
     separator
   );
 
-
-  // =========================
-  // CHAT TITLE
-  // =========================
 
   const chatTitle =
     document.createElement("div");
@@ -320,10 +294,6 @@ export function initHud(
     chatTitle
   );
 
-
-  // =========================
-  // CHAT MESSAGES
-  // =========================
 
   const chatMessages =
     document.createElement("div");
@@ -362,10 +332,6 @@ export function initHud(
   );
 
 
-  // =========================
-  // CHAT FORM
-  // =========================
-
   const chatForm =
     document.createElement("form");
 
@@ -382,9 +348,6 @@ export function initHud(
     "8px";
 
 
-  // =========================
-  // CHAT INPUT
-  // =========================
 
   const chatInput =
     document.createElement("input");
@@ -445,10 +408,6 @@ export function initHud(
   chatInput.style.fontSize =
     "12px";
 
-
-  // =========================
-  // SEND BUTTON
-  // =========================
 
   const sendButton =
     document.createElement("button");
@@ -513,10 +472,6 @@ export function initHud(
     sidebar
   );
 
-
-  // =========================
-  // RENDER PLAYERS
-  // =========================
 
   function renderPlayers(players) {
 
@@ -586,7 +541,6 @@ export function initHud(
         "7px";
 
 
-      // Online indicator
 
       const dot =
         document.createElement("span");
@@ -616,7 +570,6 @@ export function initHud(
         "inline-block";
 
 
-      // Player name
 
       const name =
         document.createElement("span");
@@ -668,10 +621,6 @@ export function initHud(
     }
   }
 
-
-  // =========================
-  // ADD CHAT MESSAGE
-  // =========================
 
   function addChatMessage(
     name,
@@ -746,18 +695,10 @@ export function initHud(
   }
 
 
-  // =========================
-  // INITIAL PLAYERS
-  // =========================
-
   renderPlayers(
     initialPlayers
   );
 
-
-  // =========================
-  // ROSTER EVENT
-  // =========================
 
   function handleRoster(event) {
 
@@ -774,10 +715,6 @@ export function initHud(
     );
   }
 
-
-  // =========================
-  // CHAT EVENT
-  // =========================
 
   function handleChat(event) {
 
@@ -810,10 +747,6 @@ export function initHud(
     );
   }
 
-
-  // =========================
-  // SEND CHAT MESSAGE
-  // =========================
 
   function handleChatSubmit(event) {
 
@@ -856,10 +789,6 @@ export function initHud(
   );
 
 
-  // =========================
-  // SCORE
-  // =========================
-
   function handleScoreChanged(
     event
   ) {
@@ -880,10 +809,6 @@ export function initHud(
     handleScoreChanged
   );
 
-
-  // =========================
-  // HUD API
-  // =========================
 
   return {
 

@@ -22,6 +22,9 @@ export class Match {
 
     this.inputs = new Map();
 
+    /*
+     * playerId -> Ship
+     */
     this.ships = new Map();
 
     this.tickRate = 30;
@@ -42,7 +45,9 @@ export class Match {
       250
     );
 
-    this.world.spawn(ship);
+    this.world.spawn(
+      ship
+    );
 
 
     this.asteroid1 = new Asteroid(
@@ -109,26 +114,86 @@ export class Match {
     );
 
 
+    /*
+     * Check whether this player
+     * already has a ship.
+     */
+
     let ship =
-      this.ships.get(id);
+      this.ships.get(
+        id
+      );
 
 
     if (!ship) {
+
+      /*
+       * Try to find a ship that
+       * isn't assigned to another player.
+       */
 
       ship =
         this.findFreeShip();
 
 
+      /*
+       * If every existing ship is
+       * already assigned, create
+       * a new one.
+       */
+
       if (!ship) {
 
+        const spawnIndex =
+          this.ships.size;
+
+        const spawnPositions = [
+          {
+            x: 400,
+            y: 250,
+          },
+          {
+            x: 200,
+            y: 250,
+          },
+          {
+            x: 600,
+            y: 250,
+          },
+          {
+            x: 400,
+            y: 120,
+          },
+          {
+            x: 400,
+            y: 380,
+          },
+        ];
+
+        const position =
+          spawnPositions[
+            spawnIndex %
+            spawnPositions.length
+          ];
+
         ship = new Ship(
-          400,
-          250
+          position.x,
+          position.y
         );
 
-        this.world.spawn(ship);
+        this.world.spawn(
+          ship
+        );
       }
 
+
+      /*
+       * IMPORTANT:
+       *
+       * The map is:
+       *
+       * playerId -> ship
+       */
 
       this.ships.set(
         id,
@@ -136,6 +201,10 @@ export class Match {
       );
     }
 
+
+    /*
+     * Reset input state for this player.
+     */
 
     this.inputs.set(
       id,
@@ -147,6 +216,13 @@ export class Match {
           right: false,
           thrust: false,
           fire: false,
+
+          /*
+           * M3:
+           * Client-generated identifier
+           * for the current shot.
+           */
+          shotId: null,
         },
 
         previousFire: false,
@@ -154,6 +230,16 @@ export class Match {
     );
   }
 
+
+  /*
+   * Find a ship which is not currently
+   * assigned to any player.
+   *
+   * IMPORTANT:
+   *
+   * this.ships keys are playerIds,
+   * so we must check its VALUES.
+   */
 
   findFreeShip() {
 
@@ -163,20 +249,48 @@ export class Match {
     ) {
 
       if (
-        !this.ships.has(
-          ship.id
-        )
+        !ship ||
+        !ship.alive
       ) {
+
+        continue;
+      }
+
+
+      let assigned =
+        false;
+
+
+      for (
+        const assignedShip of
+        this.ships.values()
+      ) {
+
+        if (
+          assignedShip === ship
+        ) {
+
+          assigned = true;
+
+          break;
+        }
+      }
+
+
+      if (!assigned) {
 
         return ship;
       }
     }
 
+
     return null;
   }
 
 
-  removeClient(playerId) {
+  removeClient(
+    playerId
+  ) {
 
     this.clients.delete(
       playerId
@@ -221,7 +335,9 @@ export class Match {
 
 
     if (
-      !Number.isInteger(seq) ||
+      !Number.isInteger(
+        seq
+      ) ||
       seq < 0
     ) {
 
@@ -236,6 +352,7 @@ export class Match {
 
 
     if (!current) {
+
       return;
     }
 
@@ -248,7 +365,8 @@ export class Match {
     }
 
 
-    current.seq = seq;
+    current.seq =
+      seq;
 
     current.input =
       this.normalizeInput(
@@ -257,7 +375,9 @@ export class Match {
   }
 
 
-  normalizeInput(input) {
+  normalizeInput(
+    input
+  ) {
 
     return {
 
@@ -280,18 +400,31 @@ export class Match {
         Boolean(
           input?.fire
         ),
+
+      /*
+       * M3:
+       *
+       * Preserve the client-generated
+       * shot identifier.
+       */
+      shotId:
+        input?.shotId ?? null,
     };
   }
 
 
   start() {
 
-    if (this.running) {
+    if (
+      this.running
+    ) {
+
       return;
     }
 
 
-    this.running = true;
+    this.running =
+      true;
 
 
     this.nextTickTime =
@@ -305,7 +438,10 @@ export class Match {
 
   scheduleNextTick() {
 
-    if (!this.running) {
+    if (
+      !this.running
+    ) {
+
       return;
     }
 
@@ -340,20 +476,25 @@ export class Match {
 
   stop() {
 
-    this.running = false;
+    this.running =
+      false;
 
 
-    if (this.timer) {
+    if (
+      this.timer
+    ) {
 
       clearTimeout(
         this.timer
       );
 
-      this.timer = null;
+      this.timer =
+        null;
     }
 
 
-    this.nextTickTime = null;
+    this.nextTickTime =
+      null;
   }
 
 
@@ -364,14 +505,33 @@ export class Match {
 
 
     /*
-     * Build input objects for every player.
-     *
-     * IMPORTANT:
-     * We do NOT call world.step() here.
+     * playerId -> {
+     *   ship,
+     *   input,
+     *   state
+     * }
      */
 
-    const playerInputs = new Map();
+    const playerInputs =
+      new Map();
 
+
+    /*
+     * Ship -> input
+     *
+     * This is what allows World.step()
+     * to use different controls for
+     * different ships.
+     */
+
+    const shipInputs =
+      new Map();
+
+
+    /*
+     * Build input for every connected
+     * player independently.
+     */
 
     for (
       const [playerId, state]
@@ -388,6 +548,11 @@ export class Match {
       }
 
 
+      /*
+       * Get the ship belonging
+       * specifically to this player.
+       */
+
       let ship =
         this.ships.get(
           playerId
@@ -396,7 +561,7 @@ export class Match {
 
       /*
        * If the player's ship died,
-       * look for a free replacement ship.
+       * assign a free ship.
        */
 
       if (
@@ -431,9 +596,17 @@ export class Match {
         state.input;
 
 
+      /*
+       * Convert network input into
+       * the interface expected by
+       * the simulation.
+       */
+
       const input = {
 
-        isDown: (action) => {
+        isDown: (
+          action
+        ) => {
 
           if (
             action ===
@@ -487,8 +660,35 @@ export class Match {
 
 
       /*
+       * IMPORTANT:
+       *
+       * This creates the exact relationship:
+       *
+       * ship A -> input A
+       * ship B -> input B
+       */
+
+      shipInputs.set(
+        ship,
+        input
+      );
+
+
+      /*
        * Fire only on the transition
        * false -> true.
+       *
+       * M3:
+       *
+       * The client sends shotId together
+       * with the fire transition.
+       *
+       * Ship.fire() creates the actual
+       * authoritative server bullet.
+       *
+       * We then assign the same id to
+       * that bullet so the client can
+       * replace its predicted bullet.
        */
 
       if (
@@ -496,7 +696,58 @@ export class Match {
         !state.previousFire
       ) {
 
+        const bulletsBefore =
+          new Set(
+            this.world.ofKind(
+              "bullet"
+            )
+          );
+
+
         ship.fire();
+
+
+        const bulletsAfter =
+          this.world.ofKind(
+            "bullet"
+          );
+
+
+        let firedBullet =
+          null;
+
+
+        for (
+          const bullet of bulletsAfter
+        ) {
+
+          if (
+            !bulletsBefore.has(
+              bullet
+            )
+          ) {
+
+            firedBullet =
+              bullet;
+
+            break;
+          }
+        }
+
+
+        if (
+          firedBullet &&
+          current.shotId !== null &&
+          current.shotId !== undefined
+        ) {
+
+          firedBullet.id =
+            String(
+              current.shotId
+            );
+
+        }
+
       }
 
 
@@ -508,25 +759,13 @@ export class Match {
     /*
      * IMPORTANT:
      *
-     * The whole world is simulated
-     * exactly ONCE per server tick.
+     * Do NOT use the first player's
+     * input as the global input.
      *
-     * This prevents asteroids,
-     * bullets and other entities
-     * from becoming faster when
-     * multiple players are connected.
+     * That was causing one player's
+     * controls to leak into another
+     * ship.
      */
-
-    const firstPlayer =
-      playerInputs.values().next().value;
-
-
-    const worldInput =
-      firstPlayer?.input || {
-
-        isDown: () => false,
-      };
-
 
     this.world.step(
       dt,
@@ -537,32 +776,58 @@ export class Match {
         height:
           this.world.height,
 
-        input:
-          worldInput,
+        /*
+         * No global player input.
+         */
+
+        input: {
+          isDown: () => false,
+        },
+
+        /*
+         * Every ship gets only
+         * its own player's input.
+         */
+
+        inputForEntity:
+          (entity) => {
+
+            if (
+              entity.kind === "ship"
+            ) {
+
+              return (
+                shipInputs.get(
+                  entity
+                ) || {
+                  isDown: () => false,
+                }
+              );
+            }
+
+
+            return {
+              isDown: () => false,
+            };
+          },
       }
     );
 
 
     /*
-     * Wrap every player's ship
-     * after the world simulation.
+     * Wrap every player's ship.
      */
 
     for (
-      const [playerId, data]
+      const [playerId]
       of playerInputs
     ) {
 
-      let ship =
+      const ship =
         this.ships.get(
           playerId
         );
 
-
-      /*
-       * The ship could have died
-       * during world.step().
-       */
 
       if (
         !ship ||
@@ -592,16 +857,13 @@ export class Match {
     }
 
 
-    /*
-     * Send the authoritative
-     * server state to every client.
-     */
-
     this.broadcastSnapshots();
   }
 
 
-  wrapShip(ship) {
+  wrapShip(
+    ship
+  ) {
 
     if (
       !ship ||
@@ -612,39 +874,49 @@ export class Match {
     }
 
 
+    const margin =
+      210;
+
+
     if (
-      ship.pos.x < 0
+      ship.pos.x < -margin
     ) {
 
       ship.pos.x =
-        this.world.width;
+        this.world.width +
+        margin;
     }
 
 
     if (
       ship.pos.x >
-      this.world.width
+      this.world.width +
+      margin
     ) {
 
-      ship.pos.x = 0;
+      ship.pos.x =
+        -margin;
     }
 
 
     if (
-      ship.pos.y < 0
+      ship.pos.y < -margin
     ) {
 
       ship.pos.y =
-        this.world.height;
+        this.world.height +
+        margin;
     }
 
 
     if (
       ship.pos.y >
-      this.world.height
+      this.world.height +
+      margin
     ) {
 
-      ship.pos.y = 0;
+      ship.pos.y =
+        -margin;
     }
   }
 
@@ -655,6 +927,11 @@ export class Match {
 
     const inputState =
       this.inputs.get(
+        playerId
+      );
+
+    const playerShip =
+      this.ships.get(
         playerId
       );
 
@@ -673,8 +950,26 @@ export class Match {
       playerId:
         playerId,
 
+      /*
+       * This is the ship belonging
+       * specifically to this player.
+       */
+
+      playerShipId:
+        playerShip?.id ?? null,
+
       lastProcessedSeq:
         inputState?.seq ?? -1,
+
+      /*
+       * IMPORTANT:
+       *
+       * serializeWorld() contains
+       * ALL alive ships and bullets.
+       *
+       * Therefore both clients receive
+       * all remote entities.
+       */
 
       world:
         this.serializeWorld(),
@@ -684,7 +979,8 @@ export class Match {
 
   serializeWorld() {
 
-    const entities = [];
+    const entities =
+      [];
 
 
     for (
@@ -781,3 +1077,4 @@ export class Match {
     }
   }
 }
+
